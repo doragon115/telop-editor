@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テロップエディター</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; background: #f0f2f5; color: #222; }
+  header { background: #1a56db; color: white; padding: 20px 32px; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+
+  .toolbar { background: white; padding: 14px 32px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
+  .btn { padding: 9px 20px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer; font-weight: bold; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: #1a56db; color: white; }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-secondary { background: #e5e7eb; color: #374151; }
+  .btn-add { background: #dbeafe; color: #1a56db; border: 2px dashed #93c5fd; }
+  .btn-update { background: #7c3aed; color: white; }
+  .hint { font-size: 12px; color: #888; }
+
+  .container { padding: 24px 32px; }
+  .table-scroll { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 1000px; }
+  thead tr { background: #1a56db; color: white; }
+  th { padding: 11px 10px; text-align: left; font-size: 12px; white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8f9ff; }
+
+  /* 削除ボタン列 */
+  .del-cell { width: 36px; text-align: center; padding: 4px; }
+  .btn-del { width: 26px; height: 26px; border-radius: 50%; border: none; background: #fee2e2; color: #dc2626; font-size: 15px; line-height: 1; cursor: pointer; font-weight: bold; }
+  .btn-del:hover { background: #fca5a5; }
+
+  /* 時間入力 */
+  .time-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .time-lbl { font-size: 9px; color: #aaa; letter-spacing: 0.5px; }
+  .time-input { width: 72px; border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; font-size: 12px; text-align: center; }
+  .time-input:focus { outline: none; border-color: #1a56db; }
+  .time-input.error { border-color: #dc2626; background: #fff5f5; }
+
+  /* テキストエリア */
+  textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 44px; line-height: 1.4; }
+  textarea:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.2); }
+
+  /* サイズ入力 */
+  .size-input { width: 66px; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 14px; text-align: center; }
+  .size-input:focus { outline: none; border-color: #1a56db; }
+
+  /* カラー系 */
+  .color-wrap { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  input[type="color"] { width: 34px; height: 34px; border: none; border-radius: 6px; cursor: pointer; padding: 2px; background: #f3f4f6; }
+  .color-hex { font-size: 11px; color: #555; width: 56px; }
+  .toggle-label { font-size: 11px; color: #555; display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+
+  /* 背景色 */
+  .bg-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .opacity-row { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
+  input[type="range"] { width: 66px; accent-color: #1a56db; cursor: pointer; }
+
+  /* プレビュー */
+  .preview-cell { width: 220px; min-width: 160px; }
+  .preview-box {
+    display: flex; align-items: center; justify-content: center;
+    width: 100%; min-height: 76px;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    border-radius: 10px; padding: 12px 14px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+  }
+  .preview-text {
+    font-family: "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    font-weight: 900; font-size: 18px; text-align: center;
+    line-height: 1.3; white-space: pre-line; word-break: keep-all;
+    paint-order: stroke fill;
+  }
+
+  /* 追加ボタン行 */
+  .add-row-area { padding: 12px 16px; }
+
+  /* ドロップゾーン */
+  #drop-zone { border: 3px dashed #1a56db; border-radius: 16px; padding: 60px 40px; text-align: center; color: #1a56db; font-size: 18px; cursor: pointer; background: white; transition: background 0.2s; }
+  #drop-zone:hover { background: #eff6ff; }
+  #drop-zone .sub { margin-top: 12px; font-size: 14px; color: #888; }
+
+  /* 縦位置 */
+  .posy-input { width: 66px; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 13px; text-align: center; }
+  .posy-input:focus { outline: none; border-color: #1a56db; }
+  .posy-wrap { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+  .posy-lbl { font-size: 9px; color: #aaa; }
+
+  /* 効果音ドロップダウン */
+  .sound-select { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 5px 8px; font-size: 12px; background: white; cursor: pointer; }
+  .sound-select:focus { outline: none; border-color: #1a56db; }
+  .sound-select option[value=""] { color: #999; }
+  .sound-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #dbeafe; color: #1a56db; margin-top: 3px; }
+
+  /* エラートースト */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #dc2626; color: white; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: bold; display: none; z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎬 テロップエディター</h1>
+  <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
+</header>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">📂 CSVを開く</button>
+  <input type="file" id="file-input" accept=".csv" style="display:none">
+  <button class="btn btn-success" onclick="saveCSV()">💾 CSVを保存</button>
+  <button class="btn btn-update" id="btn-update" onclick="saveAndImport()" style="display:none">⚡️ 保存して更新 <span style="font-size:11px;opacity:0.75;">⌘↵</span></button>
+  <button class="btn btn-secondary" onclick="resetStyles()">🔄 スタイルをリセット</button>
+  <span id="server-badge" style="display:none; font-size:12px; background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:20px; font-weight:bold;">⚡️ サーバーモード（自動保存）</span>
+  <span class="hint">① export:csv → ② エディターで編集 → ③ 保存 → ④ import:csv → ⑤ render</span>
+</div>
+
+<div class="container">
+  <div id="drop-zone">
+    <div style="font-size:48px">📄</div>
+    <strong>subtitles.csv をここにドロップ</strong>
+    <div class="sub">または クリックしてファイルを選択</div>
+    <div class="sub" style="margin-top:8px;font-size:12px;color:#aaa">場所: auto-short-video-maker / input / subtitles.csv</div>
+  </div>
+
+  <div id="table-wrap" style="display:none">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px"></th>
+            <th style="width:90px">時間(秒)</th>
+            <th style="min-width:260px">テロップ文字</th>
+            <th style="width:76px">サイズ</th>
+            <th style="width:110px">文字色</th>
+            <th style="width:120px">縁取り色</th>
+            <th style="width:140px">背景色</th>
+            <th style="width:150px">効果音 🎵</th>
+            <th style="width:80px">縦位置↕</th>
+            <th style="width:220px">プレビュー</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="add-row-area">
+      <button class="btn btn-add" onclick="addRow()">＋ テロップを追加</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let rows = [];
+let headers = [];
+let serverMode = false; // localhost:3001 経由で開いている場合はtrue
+
+// ── サーバーモード検出 & 自動ロード ──────────────
+(async function initServerMode() {
+  if (location.hostname !== 'localhost' || location.port !== '3001') return;
+  try {
+    const res = await fetch('/api/csv');
+    if (!res.ok) return;
+    const text = await res.text();
+    serverMode = true;
+    document.getElementById('server-badge').style.display = 'inline-block';
+    document.getElementById('btn-update').style.display = 'inline-block';
+    // 保存ボタンのラベルを変更
+    document.querySelector('.btn-success').textContent = '💾 保存（自動書込み）';
+    loadCSV(text);
+  } catch {
+    // サーバーなし → 通常モード
+  }
+})();
+
+// ── CSV パーサー ──────────────────────────────
+function parseCsv(text) {
+  const result = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n') { row.push(cell); if (row.some(v => v !== '')) result.push(row); row = []; cell = ''; }
+      else if (c !== '\r') cell += c;
+    }
+  }
+  if (row.length) { row.push(cell); result.push(row); }
+  return result;
+}
+
+function toCsv(data) {
+  return data.map(row =>
+    row.map(v => {
+      const s = String(v ?? '');
+      return (s.includes(',') || s.includes('\n') || s.includes('"'))
+        ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',')
+  ).join('\n');
+}
+
+// ── ユーティリティ ────────────────────────────
+function toValidColor(c) {
+  return /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#ffffff';
+}
+
+function hexToRgb(hex) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return '0,0,0';
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)].join(',');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function nextId() {
+  return rows.reduce((m, r) => Math.max(m, Number(r[headers.indexOf('id')] || 0)), 0) + 1;
+}
+
+// ── CSV 読み込み ──────────────────────────────
+function loadCSV(csvText) {
+  const parsed = parseCsv(csvText);
+  if (parsed.length < 2) { showToast('❌ CSVの行数が足りません'); return; }
+  headers = parsed[0];
+  rows = parsed.slice(1);
+
+  // 不足カラムを補完
+  const required = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  required.forEach(col => {
+    if (!headers.includes(col)) {
+      headers.push(col);
+      rows.forEach(r => r.push(''));
+    }
+  });
+
+  renderTable();
+}
+
+// ── テーブル描画 ──────────────────────────────
+function renderTable() {
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('table-wrap').style.display = 'block';
+  const tbody = document.getElementById('tbody');
+  tbody.textContent = '';
+
+  rows.forEach((row, i) => {
+    const get = col => row[headers.indexOf(col)] ?? '';
+    const set = (col, val) => { row[headers.indexOf(col)] = val; };
+
+    const text       = get('text');
+    const fontSize   = get('fontSize') || '68';
+    const color      = get('color')    || '#ffffff';
+    const strokeColor= get('strokeColor') || '#000000';
+    const bgColor    = get('bgColor')  || '';
+    const bgOpacity  = parseInt(get('bgOpacity') || '80');
+    const isNoStroke = !strokeColor || strokeColor === 'none' || strokeColor === 'transparent';
+    const hasBg      = !!bgColor;
+
+    const tr = document.createElement('tr');
+
+    // ── 削除ボタン ──
+    const tdDel = document.createElement('td');
+    tdDel.className = 'del-cell';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-del';
+    delBtn.title = 'この行を削除';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => deleteRow(i));
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+
+    // ── 時間（編集可能） ──
+    const tdTime = document.createElement('td');
+    const timeWrap = document.createElement('div');
+    timeWrap.className = 'time-wrap';
+
+    const mkTimeInput = (label, colName) => {
+      const lbl = document.createElement('div');
+      lbl.className = 'time-lbl';
+      lbl.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'time-input';
+      inp.step = '0.1';
+      inp.min = '0';
+      inp.value = get(colName);
+      inp.addEventListener('change', () => {
+        set(colName, inp.value);
+        validateTimes(i, inp);
+      });
+      return { lbl, inp };
+    };
+    const { lbl: sLbl, inp: sInp } = mkTimeInput('開始 s', 'start');
+    const { lbl: eLbl, inp: eInp } = mkTimeInput('終了 s', 'end');
+    timeWrap.append(sLbl, sInp, eLbl, eInp);
+    tdTime.appendChild(timeWrap);
+    tr.appendChild(tdTime);
+
+    // ── テキスト ──
+    const tdText = document.createElement('td');
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.addEventListener('input', () => { set('text', ta.value); updatePreview(i); });
+    tdText.appendChild(ta);
+    tr.appendChild(tdText);
+
+    // ── 文字サイズ ──
+    const tdSize = document.createElement('td');
+    const sizeInput = document.createElement('input');
+    sizeInput.type = 'number';
+    sizeInput.className = 'size-input';
+    sizeInput.value = fontSize;
+    sizeInput.min = '10'; sizeInput.max = '200';
+    sizeInput.addEventListener('input', () => { set('fontSize', sizeInput.value); updatePreview(i); });
+    tdSize.appendChild(sizeInput);
+    tr.appendChild(tdSize);
+
+    // ── 文字色 ──
+    const tdColor = document.createElement('td');
+    const colorWrap = document.createElement('div');
+    colorWrap.className = 'color-wrap';
+    const colorPicker = document.createElement('input');
+    colorPicker.type = 'color';
+    colorPicker.value = toValidColor(color);
+    const colorHex = document.createElement('span');
+    colorHex.className = 'color-hex';
+    colorHex.textContent = color;
+    colorPicker.addEventListener('input', () => {
+      set('color', colorPicker.value);
+      colorHex.textContent = colorPicker.value;
+      updatePreview(i);
+    });
+    colorWrap.append(colorPicker, colorHex);
+    tdColor.appendChild(colorWrap);
+    tr.appendChild(tdColor);
+
+    // ── 縁取り色 ──
+    const tdStroke = document.createElement('td');
+    const strokeWrap = document.createElement('div');
+    strokeWrap.className = 'color-wrap';
+    const strokePicker = document.createElement('input');
+    strokePicker.type = 'color';
+    strokePicker.value = toValidColor(isNoStroke ? '#000000' : strokeColor);
+    strokePicker.disabled = isNoStroke;
+    strokePicker.style.opacity = isNoStroke ? '0.3' : '1';
+    const strokeHex = document.createElement('span');
+    strokeHex.className = 'color-hex';
+    strokeHex.textContent = isNoStroke ? 'なし' : strokeColor;
+    const noStrokeLabel = document.createElement('label');
+    noStrokeLabel.className = 'toggle-label';
+    const noStrokeCheck = document.createElement('input');
+    noStrokeCheck.type = 'checkbox';
+    noStrokeCheck.checked = isNoStroke;
+    noStrokeLabel.append(noStrokeCheck, document.createTextNode('なし'));
+
+    const applyStroke = () => {
+      const off = noStrokeCheck.checked;
+      strokePicker.disabled = off;
+      strokePicker.style.opacity = off ? '0.3' : '1';
+      const val = off ? 'transparent' : strokePicker.value;
+      set('strokeColor', val);
+      strokeHex.textContent = off ? 'なし' : strokePicker.value;
+      updatePreview(i);
+    };
+    noStrokeCheck.addEventListener('change', applyStroke);
+    strokePicker.addEventListener('input', () => {
+      set('strokeColor', strokePicker.value);
+      strokeHex.textContent = strokePicker.value;
+      updatePreview(i);
+    });
+    strokeWrap.append(strokePicker, strokeHex, noStrokeLabel);
+    tdStroke.appendChild(strokeWrap);
+    tr.appendChild(tdStroke);
+
+    // ── 背景色 ──
+    const tdBg = document.createElement('td');
+    const bgWrap = document.createElement('div');
+    bgWrap.className = 'bg-wrap';
+    const bgTopRow = document.createElement('div');
+    bgTopRow.className = 'color-wrap';
+    const bgPicker = document.createElement('input');
+    bgPicker.type = 'color';
+    bgPicker.value = hasBg ? toValidColor(bgColor) : '#000000';
+    bgPicker.disabled = !hasBg;
+    bgPicker.style.opacity = hasBg ? '1' : '0.3';
+    const noBgLabel = document.createElement('label');
+    noBgLabel.className = 'toggle-label';
+    const noBgCheck = document.createElement('input');
+    noBgCheck.type = 'checkbox';
+    noBgCheck.checked = !hasBg;
+    noBgLabel.append(noBgCheck, document.createTextNode('なし'));
+
+    const opacityRow = document.createElement('div');
+    opacityRow.className = 'opacity-row';
+    const opacitySlider = document.createElement('input');
+    opacitySlider.type = 'range';
+    opacitySlider.min = '0'; opacitySlider.max = '100';
+    opacitySlider.value = String(bgOpacity);
+    opacitySlider.disabled = !hasBg;
+    const opacityVal = document.createElement('span');
+    opacityVal.textContent = hasBg ? bgOpacity + '%' : '—';
+    opacityRow.append(opacitySlider, opacityVal);
+
+    const applyBg = () => {
+      const off = noBgCheck.checked;
+      bgPicker.disabled = off;
+      bgPicker.style.opacity = off ? '0.3' : '1';
+      opacitySlider.disabled = off;
+      opacityVal.textContent = off ? '—' : opacitySlider.value + '%';
+      set('bgColor', off ? '' : bgPicker.value);
+      set('bgOpacity', off ? '80' : opacitySlider.value);
+      updatePreview(i);
+    };
+    noBgCheck.addEventListener('change', applyBg);
+    bgPicker.addEventListener('input', () => { set('bgColor', bgPicker.value); updatePreview(i); });
+    opacitySlider.addEventListener('input', () => {
+      set('bgOpacity', opacitySlider.value);
+      opacityVal.textContent = opacitySlider.value + '%';
+      updatePreview(i);
+    });
+    bgTopRow.append(bgPicker, noBgLabel);
+    bgWrap.append(bgTopRow, opacityRow);
+    tdBg.appendChild(bgWrap);
+    tr.appendChild(tdBg);
+
+    // ── 効果音 ──
+    const tdSound = document.createElement('td');
+    const soundVal = get('sound') || '';
+    const soundSelect = document.createElement('select');
+    soundSelect.className = 'sound-select';
+    const SOUNDS = [
+      { value: '', label: '🔇 なし' },
+      { value: 'sounds/se_intro.mp3',       label: '🎬 se_intro（オープニング）' },
+      { value: 'sounds/se_fanfare.mp3',      label: '🎺 se_fanfare（ファンファーレ）' },
+      { value: 'sounds/se_achievement.mp3',  label: '🏆 se_achievement（達成）' },
+      { value: 'sounds/se_impact.mp3',       label: '💥 se_impact（インパクト）' },
+      { value: 'sounds/se_treasure.mp3',     label: '💰 se_treasure（お宝・稼ぐ）' },
+      { value: 'sounds/se_money.mp3',        label: '🤑 se_money（マネー）' },
+      { value: 'sounds/se_drum.mp3',         label: '🥁 se_drum（ドラム）' },
+      { value: 'sounds/se_applause.mp3',     label: '👏 se_applause（拍手）' },
+      { value: 'sounds/se_sugoi.mp3',        label: '✨ se_sugoi（すごい）' },
+      { value: 'sounds/se_pikon.mp3',        label: '🔔 se_pikon（ピコン）' },
+      { value: 'sounds/se_notice.mp3',       label: '📢 se_notice（お知らせ）' },
+      { value: 'sounds/se_sigh.mp3',         label: '😮‍💨 se_sigh（ため息）' },
+    ];
+    SOUNDS.forEach(({ value, label }) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      if (value === soundVal) opt.selected = true;
+      soundSelect.appendChild(opt);
+    });
+    // CSVにある値が上記リストにない場合も保持
+    if (soundVal && !SOUNDS.find(s => s.value === soundVal)) {
+      const opt = document.createElement('option');
+      opt.value = soundVal; opt.textContent = '🔊 ' + soundVal; opt.selected = true;
+      soundSelect.insertBefore(opt, soundSelect.children[1]);
+    }
+    soundSelect.addEventListener('change', () => { set('sound', soundSelect.value); });
+    tdSound.appendChild(soundSelect);
+    tr.appendChild(tdSound);
+
+    // ── 縦位置 (posY) ──
+    const tdPosY = document.createElement('td');
+    const posYWrap = document.createElement('div');
+    posYWrap.className = 'posy-wrap';
+    const posYLbl = document.createElement('div');
+    posYLbl.className = 'posy-lbl';
+    posYLbl.textContent = '下からpx';
+    const posYInput = document.createElement('input');
+    posYInput.type = 'number';
+    posYInput.className = 'posy-input';
+    posYInput.placeholder = '360';
+    posYInput.min = '0'; posYInput.max = '1800'; posYInput.step = '20';
+    posYInput.value = get('posY') || '';
+    posYInput.addEventListener('change', () => { set('posY', posYInput.value); });
+    posYWrap.append(posYLbl, posYInput);
+    tdPosY.appendChild(posYWrap);
+    tr.appendChild(tdPosY);
+
+    // ── プレビュー ──
+    const tdPreview = document.createElement('td');
+    tdPreview.className = 'preview-cell';
+    const previewBox = document.createElement('div');
+    previewBox.className = 'preview-box';
+    const preview = document.createElement('span');
+    preview.className = 'preview-text';
+    preview.id = 'preview-' + i;
+    applyPreviewStyle(preview, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg });
+    preview.textContent = text.trim() ? text : '（空）';
+    previewBox.appendChild(preview);
+    tdPreview.appendChild(previewBox);
+    tr.appendChild(tdPreview);
+
+    tbody.appendChild(tr);
+  });
+}
+
+// ── プレビュースタイル適用（共通） ──────────────
+function applyPreviewStyle(el, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg }) {
+  el.style.color = color || '#ffffff';
+  if (isNoStroke) {
+    el.style.webkitTextStroke = '';
+    el.style.textShadow = '';
+  } else {
+    el.style.webkitTextStroke = '3px ' + strokeColor;
+    el.style.textShadow = `0 3px 0 ${strokeColor}, 2px 2px 0 ${strokeColor}, -2px 2px 0 ${strokeColor}`;
+  }
+  if (hasBg && /^#[0-9a-fA-F]{6}$/.test(bgColor)) {
+    const op = (bgOpacity / 100).toFixed(2);
+    el.style.background = `rgba(${hexToRgb(bgColor)},${op})`;
+    el.style.padding = '6px 16px';
+    el.style.borderRadius = '8px';
+  } else {
+    el.style.background = '';
+    el.style.padding = '';
+    el.style.borderRadius = '';
+  }
+}
+
+function updatePreview(i) {
+  const get = col => rows[i][headers.indexOf(col)] ?? '';
+  const preview = document.getElementById('preview-' + i);
+  if (!preview) return;
+  const sc = get('strokeColor');
+  const bgC = get('bgColor');
+  const bgOp = parseInt(get('bgOpacity') || '80');
+  applyPreviewStyle(preview, {
+    color: get('color') || '#ffffff',
+    strokeColor: sc,
+    isNoStroke: !sc || sc === 'none' || sc === 'transparent',
+    bgColor: bgC,
+    bgOpacity: bgOp,
+    hasBg: !!bgC,
+  });
+  const text = get('text');
+  preview.textContent = text.trim() ? text : '（空）';
+}
+
+// ── 時間バリデーション ─────────────────────────
+function validateTimes(i, changedInput) {
+  const get = col => rows[i][headers.indexOf(col)] ?? '';
+  const s = parseFloat(get('start'));
+  const e = parseFloat(get('end'));
+  if (!isNaN(s) && !isNaN(e) && e <= s) {
+    changedInput.classList.add('error');
+    showToast('⚠️ 終了時間は開始時間より後にしてください');
+  } else {
+    changedInput.classList.remove('error');
+  }
+}
+
+// ── 行の追加・削除 ────────────────────────────
+function addRow() {
+  const id = nextId();
+  const newRow = headers.map(h => {
+    if (h === 'id')          return String(id);
+    if (h === 'start')       return '0';
+    if (h === 'end')         return '5';
+    if (h === 'text')        return '';
+    if (h === 'fontSize')    return '68';
+    if (h === 'color')       return '#ffffff';
+    if (h === 'strokeColor') return '#000000';
+    if (h === 'fontWeight')  return '900';
+    if (h === 'bgColor')     return '';
+    if (h === 'bgOpacity')   return '80';
+    if (h === 'sound')       return '';
+    return '';
+  });
+  rows.push(newRow);
+  renderTable();
+  document.getElementById('tbody').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function deleteRow(i) {
+  if (!confirm(`行 ${i+1}（${rows[i][headers.indexOf('start')]}s〜${rows[i][headers.indexOf('end')]}s）を削除しますか？`)) return;
+  rows.splice(i, 1);
+  renderTable();
+}
+
+// ── 保存 ─────────────────────────────────────
+async function saveCSV() {
+  // 保存前バリデーション
+  let hasError = false;
+  rows.forEach((row, i) => {
+    const s = parseFloat(row[headers.indexOf('start')] || '0');
+    const e = parseFloat(row[headers.indexOf('end')] || '0');
+    if (e <= s) { hasError = true; }
+  });
+  if (hasError) {
+    showToast('❌ 終了時間が開始時間以下の行があります。修正してから保存してください。');
+    return;
+  }
+
+  // start でソート
+  rows.sort((a, b) => parseFloat(a[headers.indexOf('start')]||0) - parseFloat(b[headers.indexOf('start')]||0));
+
+  const csv = toCsv([headers, ...rows]);
+
+  if (serverMode) {
+    // サーバーモード: input/subtitles.csv に直接書き込む
+    try {
+      const res = await fetch('/api/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv; charset=utf-8' },
+        body: csv,
+      });
+      if (res.ok) {
+        showToast('✅ input/subtitles.csv に保存しました！　import:csv → render を実行してください');
+      } else {
+        showToast('❌ 保存失敗。サーバーを確認してください。');
+      }
+    } catch {
+      showToast('❌ サーバーに接続できません。');
+    }
+  } else {
+    // 通常モード: ダウンロード
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'subtitles.csv';
+    a.click();
+    showToast('✅ 保存しました！　input/ に上書きして import:csv → render を実行してください');
+  }
+}
+
+// ── 保存して更新 ──────────────────────────────
+async function saveAndImport() {
+  const btn = document.getElementById('btn-update');
+  btn.textContent = '⏳ 保存中...';
+  btn.disabled = true;
+  try {
+    await saveCSV();
+    btn.textContent = '⏳ transcript更新中...';
+    const res = await fetch('/api/import', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ transcript.json を更新しました！Remotionをリロードしてください');
+    } else {
+      showToast('❌ import失敗: ' + data.error);
+    }
+  } catch(e) {
+    showToast('❌ エラー: ' + String(e));
+  } finally {
+    btn.textContent = '⚡️ 保存して更新';
+    btn.disabled = false;
+  }
+}
+
+// ── スタイルリセット ──────────────────────────
+function resetStyles() {
+  if (!confirm('全テロップのサイズ・色をデフォルトに戻しますか？')) return;
+  rows.forEach(row => {
+    const set = (col, val) => { const i = headers.indexOf(col); if (i >= 0) row[i] = val; };
+    set('fontSize', '68'); set('color', '#ffffff');
+    set('strokeColor', '#000000'); set('fontWeight', '900');
+    set('bgColor', ''); set('bgOpacity', '80');
+  });
+  renderTable();
+}
+
+// ── ファイル入力 ──────────────────────────────
+document.getElementById('file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => loadCSV(e.target.result);
+  reader.readAsText(file, 'utf-8');
+  this.value = '';
+});
+
+// ── ドラッグ&ドロップ ─────────────────────────
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = '#eff6ff'; });
+dz.addEventListener('dragleave', () => { dz.style.background = 'white'; });
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.style.background = 'white';
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => loadCSV(ev.target.result);
+  reader.readAsText(file, 'utf-8');
+});
+dz.addEventListener('click', () => document.getElementById('file-input').click());
+
+// Cmd+Enter → 保存して更新
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    const btn = document.getElementById('btn-update');
+    if (btn && btn.style.display !== 'none' && !btn.disabled) {
+      saveAndImport();
+    }
+  }
+});
+</script>
+</body>
+</html>

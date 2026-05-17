@@ -1,0 +1,4 @@
+id,start,end,text,fontSize,color,strokeColor,fontWeight,bgColor,bgOpacity,sound,posY
+1,0,2,こんにちは！,68,#ffffff,#000000,900,,,80,,360
+2,2,4,テストです,68,#ffffff,#000000,900,,,80,,360
+3,4,6,完成！,68,#ffffff,#000000,900,,,80,,360
