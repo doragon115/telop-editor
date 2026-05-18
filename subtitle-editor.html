@@ -1121,32 +1121,61 @@ async function saveVolumeToTranscript(volume) {
   } catch (e) { console.error('音量保存失敗:', e); }
 }
 
-// ── Remotion Studio 起動 ─────────────────────────
+// ── Remotion Studio 起動（保存→更新→オープン） ───
 async function openRemotionStudio() {
   const btn = document.getElementById('remotion-btn');
   const sub = document.getElementById('remotion-btn-sub');
   btn.style.opacity = '0.7';
   btn.style.pointerEvents = 'none';
 
-  // まず起動中か確認
+  const reset = () => {
+    sub.textContent = 'プレビュー・書き出し';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = '';
+  };
+
   try {
+    // ① サーバーモードのときだけ保存→更新を先に実行
+    if (location.hostname === 'localhost') {
+      // 波形 segments の最終値を rows に同期
+      if (window.getSegments) {
+        const segs = window.getSegments();
+        const idCol    = headers.indexOf('id');
+        const startCol = headers.indexOf('start');
+        const endCol   = headers.indexOf('end');
+        segs.forEach(seg => {
+          const i = rows.findIndex(r => parseInt(r[idCol]) === seg.id);
+          if (i >= 0) {
+            rows[i][startCol] = String(seg.start);
+            rows[i][endCol]   = String(seg.end);
+          }
+        });
+      }
+
+      sub.textContent = '💾 保存中...';
+      await saveCSV();
+
+      sub.textContent = '🔄 transcript更新中...';
+      const importRes = await fetch('/api/import', { method: 'POST' });
+      const importData = await importRes.json();
+      if (!importData.ok) {
+        showToast('⚠️ transcript更新に失敗しました: ' + importData.error);
+      }
+    }
+
+    // ② Studio の起動確認
     const statusRes = await fetch('/api/studio-status');
     const status = await statusRes.json();
 
     if (status.running) {
-      // すでに起動中 → そのまま開く
-      sub.textContent = '接続中...';
+      sub.textContent = '✅ 保存済み！開きます...';
       window.open('http://localhost:3000', '_blank');
-      setTimeout(() => {
-        sub.textContent = 'プレビュー・書き出し';
-        btn.style.opacity = '1';
-        btn.style.pointerEvents = '';
-      }, 1500);
+      setTimeout(reset, 2000);
       return;
     }
 
-    // 未起動 → 起動リクエスト
-    sub.textContent = '🚀 起動中...';
+    // ③ 未起動 → 起動
+    sub.textContent = '🚀 Remotion起動中...';
     await fetch('/api/studio-start', { method: 'POST' });
 
     // 最大20秒ポーリングして起動待ち
@@ -1170,14 +1199,10 @@ async function openRemotionStudio() {
     }
   } catch (e) {
     sub.textContent = '❌ エラー';
-    alert('起動に失敗しました。ターミナルで「npm run studio」を実行してください。');
+    alert('エラーが発生しました。ターミナルで「npm run studio」を実行してください。');
   }
 
-  setTimeout(() => {
-    sub.textContent = 'プレビュー・書き出し';
-    btn.style.opacity = '1';
-    btn.style.pointerEvents = '';
-  }, 3000);
+  setTimeout(reset, 3000);
 }
 
 // BGMリストを起動時に読み込む
