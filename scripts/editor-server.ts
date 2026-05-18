@@ -88,34 +88,46 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/audio-files → input/audio/ の .mp3/.wav 一覧を返す
+  // GET /api/audio-files → input/audio/ または input/ の .mp3/.wav 一覧を返す
   if (req.method === 'GET' && url.pathname === '/api/audio-files') {
-    const audioDir = path.resolve('input/audio');
+    const isAudio = (f: string) => f.endsWith('.mp3') || f.endsWith('.wav');
+    const candidates: Array<{ file: string; dir: string }> = [];
+    // input/audio/ を優先スキャン
     try {
-      const files = fs.readdirSync(audioDir).filter(f => f.endsWith('.mp3') || f.endsWith('.wav'));
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(files));
-    } catch {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify([]));
+      const d = path.resolve('input/audio');
+      fs.readdirSync(d).filter(isAudio).forEach(f => candidates.push({ file: f, dir: 'audio' }));
+    } catch {}
+    // input/ 直下もスキャン（input/audio/ が空 or 存在しない場合の fallback）
+    if (candidates.length === 0) {
+      try {
+        const d = path.resolve('input');
+        fs.readdirSync(d).filter(isAudio).forEach(f => candidates.push({ file: f, dir: 'input' }));
+      } catch {}
     }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(candidates));
     return;
   }
 
-  // GET /audio/:file → input/audio/ から音声ファイルをストリーム配信
+  // GET /audio/:file → input/audio/ または input/ から音声ファイルをストリーム配信
   if (req.method === 'GET' && url.pathname.startsWith('/audio/')) {
     const fileName = decodeURIComponent(url.pathname.slice('/audio/'.length));
-    const audioBase = path.resolve('input/audio');
-    const filePath = path.resolve(audioBase, fileName);
-    if (!filePath.startsWith(audioBase)) {
-      res.writeHead(403); res.end('Forbidden'); return;
+    // input/audio/ を優先、なければ input/ 直下も探す
+    const searchDirs = [path.resolve('input/audio'), path.resolve('input')];
+    let found: string | null = null;
+    for (const dir of searchDirs) {
+      const candidate = path.resolve(dir, fileName);
+      if (candidate.startsWith(dir) && fs.existsSync(candidate)) {
+        found = candidate; break;
+      }
     }
+    if (!found) { res.writeHead(404); res.end('Audio file not found'); return; }
     try {
-      const stat = fs.statSync(filePath);
+      const stat = fs.statSync(found);
       const ext = path.extname(fileName).toLowerCase();
       const mime = ext === '.mp3' ? 'audio/mpeg' : 'audio/wav';
       res.writeHead(200, { 'Content-Type': mime, 'Content-Length': stat.size });
-      fs.createReadStream(filePath).pipe(res);
+      fs.createReadStream(found).pipe(res);
     } catch {
       res.writeHead(404); res.end('Audio file not found');
     }

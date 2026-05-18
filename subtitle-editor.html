@@ -956,12 +956,13 @@ function loadAudioUrl(url, filename) {
 
 // サーバーから音声ファイル一覧を取得して自動ロード
 async function autoLoadAudio() {
-  if (location.hostname !== 'localhost') return;
+  if (location.hostname !== 'localhost') return false;
   try {
     const res = await fetch('/api/audio-files');
-    const files = await res.json();
+    const files = await res.json(); // [{ file, dir }]
     if (files.length > 0) {
-      loadAudioUrl(`/audio/${encodeURIComponent(files[0])}`, files[0]);
+      const { file } = files[0];
+      loadAudioUrl(`/audio/${encodeURIComponent(file)}`, file);
       return true;
     }
   } catch {}
