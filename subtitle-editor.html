@@ -24,7 +24,7 @@
   .container { padding: 24px 32px; }
   .table-scroll { overflow-x: auto; }
 
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 1000px; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 1000px; table-layout: fixed; }
   thead tr { background: #1a56db; color: white; }
   th { padding: 11px 10px; text-align: left; font-size: 12px; white-space: nowrap; }
   td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
@@ -62,20 +62,42 @@
   .opacity-row { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
   input[type="range"] { width: 66px; accent-color: #1a56db; cursor: pointer; }
 
-  /* プレビュー */
-  .preview-cell { width: 220px; min-width: 160px; }
+  /* ========================================================
+     プレビュー — Remotion と完全一致
+     ・940px幅・実際のfont-sizeでレンダリング
+     ・transform: scale(252/940) で縮小表示
+     ・横: .preview-box の overflow:hidden + 固定幅でclip
+     ・縦: margin-bottom 負値で余分な高さを圧縮
+     ======================================================== */
+  .preview-cell { width: 272px; max-width: 272px; }
   .preview-box {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; min-height: 76px;
+    width: 252px;          /* 940 × (252/940) = 252px ← ここで横をclip */
+    overflow: hidden;      /* 940px の内枠をここで252pxに切り取る */
     background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
-    border-radius: 10px; padding: 12px 14px;
+    border-radius: 10px;
+    padding: 10px 0;       /* 左右 0: scaleで横幅ぴったりのため */
     box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
   }
+  .preview-scale-inner {
+    width: 940px;
+    transform: scale(0.2681);  /* 252/940 */
+    transform-origin: top left;
+    /* margin-bottom は JS で -domHeight*(1-0.2681) にセット */
+  }
   .preview-text {
-    font-family: "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-    font-weight: 900; font-size: 18px; text-align: center;
-    line-height: 1.3; white-space: pre-line; word-break: keep-all;
+    display: block;
+    font-family: "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-weight: 900;
+    font-size: 68px;       /* Remotion と同じ */
+    line-height: 1.18;     /* Remotion と同じ */
+    white-space: pre-line; /* Remotion と同じ */
+    word-break: keep-all;       /* Remotion と同じ */
+    overflow-wrap: break-word;  /* Remotion と同じ — これがないと折り返されずはみ出す */
+    text-align: center;
     paint-order: stroke fill;
+    width: 940px;
+    padding: 0;
+    margin: 0;
   }
 
   /* 追加ボタン行 */
@@ -127,6 +149,9 @@
 <header>
   <h1>🎬 テロップエディター</h1>
   <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
+  <nav style="margin-top:10px;">
+    <a href="/image-splitter" style="color:rgba(255,255,255,0.9);font-size:13px;text-decoration:none;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);">🖼️ 画像分割ツール</a>
+  </nav>
 </header>
 
 <!-- 初心者向けガイド -->
@@ -224,7 +249,7 @@
             <th style="width:140px">背景色</th>
             <th style="width:150px">効果音 🎵</th>
             <th style="width:80px">縦位置↕</th>
-            <th style="width:220px">プレビュー</th>
+            <th style="width:272px">プレビュー</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -662,44 +687,66 @@ function renderTable() {
     tdPosY.appendChild(posYWrap);
     tr.appendChild(tdPosY);
 
-    // ── プレビュー ──
+    // ── プレビュー（Remotion 実寸レンダリング → scale縮小）──
     const tdPreview = document.createElement('td');
     tdPreview.className = 'preview-cell';
     const previewBox = document.createElement('div');
     previewBox.className = 'preview-box';
-    const preview = document.createElement('span');
+    const scaleInner = document.createElement('div');
+    scaleInner.className = 'preview-scale-inner';
+    scaleInner.id = 'preview-inner-' + i;
+    const preview = document.createElement('p');
     preview.className = 'preview-text';
     preview.id = 'preview-' + i;
-    applyPreviewStyle(preview, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg });
+    applyPreviewStyle(preview, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg, fontSize });
     preview.textContent = text.trim() ? text : '（空）';
-    previewBox.appendChild(preview);
+    scaleInner.appendChild(preview);
+    previewBox.appendChild(scaleInner);
     tdPreview.appendChild(previewBox);
     tr.appendChild(tdPreview);
+    // 縦高さ補正: scale後の余白を margin-bottom 負値で圧縮
+    requestAnimationFrame(() => syncPreviewHeight(i));
 
     tbody.appendChild(tr);
   });
 }
 
 // ── プレビュースタイル適用（共通） ──────────────
-function applyPreviewStyle(el, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg }) {
+// Remotion と同じ実サイズで描画。transform は CSS 側で担う。
+const PREVIEW_SCALE = 252 / 940;  // = 0.2681
+function applyPreviewStyle(el, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg, fontSize }) {
+  const fs = parseFloat(fontSize) || 68;
+  el.style.fontSize = fs + 'px';          // Remotion と同じ実サイズ
   el.style.color = color || '#ffffff';
   if (isNoStroke) {
     el.style.webkitTextStroke = '';
-    el.style.textShadow = '';
+    el.style.textShadow = '0 12px 18px rgba(0,0,0,0.6)';
   } else {
-    el.style.webkitTextStroke = '3px ' + strokeColor;
-    el.style.textShadow = `0 3px 0 ${strokeColor}, 2px 2px 0 ${strokeColor}, -2px 2px 0 ${strokeColor}`;
+    el.style.webkitTextStroke = '5px ' + strokeColor;    // Remotion と同じ
+    el.style.textShadow = `0 7px 0 ${strokeColor}, 0 12px 18px rgba(0,0,0,0.95), 4px 4px 0 ${strokeColor}, -4px 4px 0 ${strokeColor}`;
   }
   if (hasBg && /^#[0-9a-fA-F]{6}$/.test(bgColor)) {
     const op = (bgOpacity / 100).toFixed(2);
     el.style.background = `rgba(${hexToRgb(bgColor)},${op})`;
-    el.style.padding = '6px 16px';
-    el.style.borderRadius = '8px';
+    el.style.padding = '12px 32px';        // Remotion と同じ
+    el.style.borderRadius = '12px';
   } else {
     el.style.background = '';
     el.style.padding = '';
     el.style.borderRadius = '';
   }
+}
+
+// 高さ補正: scale(0.2681)後の余分な高さを margin-bottom 負値で圧縮
+// 例) 1行=80px → 視覚80×0.2681=21.4px。余分=80-21.4=58.6px → margin-bottom:-59px
+function syncPreviewHeight(i) {
+  const inner = document.getElementById('preview-inner-' + i);
+  if (!inner) return;
+  const textEl = inner.querySelector('.preview-text');
+  if (!textEl) return;
+  const domH = textEl.offsetHeight;                      // scale前のDOM高さ
+  const excess = domH * (1 - PREVIEW_SCALE);            // 余分な高さ
+  inner.style.marginBottom = '-' + Math.ceil(excess) + 'px';
 }
 
 function updatePreview(i) {
@@ -716,9 +763,11 @@ function updatePreview(i) {
     bgColor: bgC,
     bgOpacity: bgOp,
     hasBg: !!bgC,
+    fontSize: get('fontSize') || '68',
   });
   const text = get('text');
   preview.textContent = text.trim() ? text : '（空）';
+  requestAnimationFrame(() => syncPreviewHeight(i));
 }
 
 // ── 時間バリデーション ─────────────────────────
@@ -1155,10 +1204,10 @@ document.addEventListener('keydown', (e) => {
     ws.playPause();
   } else if (e.code === 'ArrowLeft') {
     e.preventDefault();
-    ws.skip(0.033);
+    ws.setTime(Math.max(0, ws.getCurrentTime() - 0.033));
   } else if (e.code === 'ArrowRight') {
     e.preventDefault();
-    ws.skip(-0.033);
+    ws.setTime(Math.min(ws.getDuration(), ws.getCurrentTime() + 0.033));
   }
 });
 

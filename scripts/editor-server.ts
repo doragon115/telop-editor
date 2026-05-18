@@ -226,6 +226,86 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /image-splitter → image-splitter.html を返す
+  if (req.method === 'GET' && url.pathname === '/image-splitter') {
+    try {
+      const html = fs.readFileSync(path.resolve('image-splitter.html'), 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch {
+      res.writeHead(404); res.end('image-splitter.html not found');
+    }
+    return;
+  }
+
+  // GET /api/projects → projects/ 配下のフォルダ名一覧を返す
+  if (req.method === 'GET' && url.pathname === '/api/projects') {
+    const projectsDir = path.resolve('projects');
+    let projects: string[] = [];
+    try {
+      projects = fs.readdirSync(projectsDir).filter(f =>
+        fs.statSync(path.join(projectsDir, f)).isDirectory()
+      );
+    } catch {
+      // projects/ が存在しない場合は空配列
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(projects));
+    return;
+  }
+
+  // POST /api/save-images → 16枚のPNGをprojects/配下に保存
+  // Body: { projectName, imageType: 'portraits'|'inserts', images: [{filename, dataUrl, label}] }
+  if (req.method === 'POST' && url.pathname === '/api/save-images') {
+    let body = '';
+    req.on('data', (chunk: Buffer) => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const { projectName, imageType, images } = JSON.parse(body) as {
+          projectName: string;
+          imageType: 'portraits' | 'inserts';
+          images: Array<{ filename: string; dataUrl: string; label: string }>;
+        };
+        if (!projectName || !projectName.trim()) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: '作品名が未入力です' }));
+          return;
+        }
+        if (imageType !== 'portraits' && imageType !== 'inserts') {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: '画像タイプが不正です' }));
+          return;
+        }
+        if (!Array.isArray(images) || images.length !== 16) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: '画像が16枚ではありません' }));
+          return;
+        }
+        // パストラバーサル防止
+        const safeName = projectName.trim().replace(/[/\\:*?"<>|]/g, '_');
+        const dir = path.resolve('projects', safeName, 'images', imageType);
+        fs.mkdirSync(dir, { recursive: true });
+        for (const { filename, dataUrl } of images) {
+          const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+          fs.writeFileSync(path.join(dir, filename), Buffer.from(base64, 'base64'));
+        }
+        // image-list.txt
+        const listLines = images.map(({ filename, label }) =>
+          `${filename}：${label && label.trim() ? label.trim() : '（説明を記入）'}`
+        );
+        fs.writeFileSync(path.join(dir, 'image-list.txt'), listLines.join('\n'), 'utf-8');
+        const relativePath = `projects/${safeName}/images/${imageType}`;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, path: relativePath, count: images.length }));
+        console.log(`✅ 画像保存: ${relativePath} (${images.length}枚)`);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
+    return;
+  }
+
   res.writeHead(404); res.end('Not found');
 });
 

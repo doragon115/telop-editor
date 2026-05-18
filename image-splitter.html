@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4x4 画像分割ツール</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; background: #f3f4f6; color: #111827; margin: 0; padding: 0; }
+header { background: #1a56db; color: white; padding: 16px 32px; display: flex; align-items: center; gap: 16px; }
+header h1 { margin: 0; font-size: 20px; font-weight: bold; }
+header a { color: rgba(255,255,255,0.8); text-decoration: none; font-size: 13px; margin-left: auto; padding: 8px 14px; background: rgba(255,255,255,0.15); border-radius: 6px; }
+header a:hover { color: white; background: rgba(255,255,255,0.25); }
+.container { max-width: 920px; margin: 32px auto; padding: 0 24px 80px; }
+.card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 24px 28px; margin-bottom: 20px; }
+.step-label { font-size: 11px; font-weight: bold; color: #1a56db; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.card h2 { font-size: 16px; margin: 0 0 16px; }
+input[type="text"] { width: 100%; border: 1px solid #d1d5db; border-radius: 8px; padding: 10px 14px; font-size: 15px; outline: none; transition: border-color 0.15s; }
+input[type="text"]:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.12); }
+.radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
+.radio-option { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; padding: 12px 24px; border: 2px solid #e5e7eb; border-radius: 8px; transition: all 0.15s; user-select: none; }
+.radio-option.selected { border-color: #1a56db; background: #eff6ff; color: #1a56db; font-weight: bold; }
+#drop-zone { border: 2px dashed #d1d5db; border-radius: 12px; padding: 48px 20px; text-align: center; cursor: pointer; transition: all 0.2s; background: #fafafa; }
+#drop-zone:hover, #drop-zone.drag-over { border-color: #1a56db; background: #eff6ff; }
+#drop-zone .dz-icon { font-size: 44px; margin-bottom: 12px; }
+#drop-zone p { margin: 4px 0; font-size: 14px; color: #6b7280; }
+#drop-zone strong { font-size: 16px; color: #111827; display: block; margin-bottom: 4px; }
+#file-input { display: none; }
+.preview-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+.preview-cell { display: flex; flex-direction: column; gap: 4px; }
+.preview-num { font-size: 10px; color: #9ca3af; text-align: center; font-weight: bold; }
+.preview-cell img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; display: block; }
+.preview-cell input[type="text"] { font-size: 11px; padding: 4px 8px; border-radius: 5px; }
+.btn { display: inline-block; border: none; border-radius: 8px; padding: 12px 28px; font-size: 15px; font-weight: bold; cursor: pointer; transition: all 0.15s; text-decoration: none; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: #1a56db; color: white; }
+.btn-primary:hover:not(:disabled) { background: #1447c0; }
+.btn-secondary { background: #e5e7eb; color: #374151; }
+.btn-secondary:hover { background: #d1d5db; }
+.btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.result-box { background: #f0fdf4; border: 2px solid #16a34a; border-radius: 12px; padding: 32px; text-align: center; }
+.result-icon { font-size: 52px; margin-bottom: 12px; }
+.result-box h3 { margin: 0 0 8px; color: #166534; font-size: 22px; }
+.result-path { font-family: monospace; font-size: 14px; background: #dcfce7; border-radius: 6px; padding: 10px 18px; color: #15803d; display: inline-block; margin: 10px 0 20px; word-break: break-all; }
+#toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 13px 26px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; white-space: nowrap; }
+#toast.show { opacity: 1; }
+#preview-section { display: none; }
+#result-section { display: none; }
+.hint { margin: 10px 0 0; font-size: 12px; color: #6b7280; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>🖼️</div>
+  <h1>4×4 画像分割ツール</h1>
+  <a href="/">← テロップエディターへ</a>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <div class="step-label">STEP 1</div>
+    <h2>作品名を入力してください</h2>
+    <input type="text" id="project-name" placeholder="例：AI動画の作り方" list="project-list" autocomplete="off">
+    <datalist id="project-list"></datalist>
+    <p class="hint">既存の作品名を入力すると既存フォルダに追加、新しい名前を入力すると新規作成されます。</p>
+  </div>
+
+  <div class="card">
+    <div class="step-label">STEP 2</div>
+    <h2>画像タイプを選択してください</h2>
+    <div class="radio-group" id="radio-group">
+      <div class="radio-option selected" data-value="portraits" id="opt-portraits">
+        🧑 人物画像（portraits）
+      </div>
+      <div class="radio-option" data-value="inserts" id="opt-inserts">
+        🖼️ 挿絵画像（inserts）
+      </div>
+    </div>
+    <p class="hint" id="type-desc"></p>
+  </div>
+
+  <div class="card">
+    <div class="step-label">STEP 3</div>
+    <h2>4×4 コラージュ画像を選択</h2>
+    <div id="drop-zone">
+      <div class="dz-icon">📁</div>
+      <strong>クリックして画像を選択</strong>
+      <p>またはここにドラッグ＆ドロップ</p>
+      <p style="font-size:11px;margin-top:8px;">対応形式：PNG / JPEG / WebP</p>
+    </div>
+    <input type="file" id="file-input" accept="image/*">
+  </div>
+
+  <div id="preview-section" class="card">
+    <div class="step-label">STEP 4</div>
+    <h2>16分割プレビュー <span id="preview-type-badge" style="font-size:12px;font-weight:normal;color:#6b7280;"></span></h2>
+    <p style="font-size:13px;color:#6b7280;margin:0 0 16px;">各画像に説明を入力できます（省略可）。image-list.txt に保存されます。</p>
+    <div class="preview-grid" id="preview-grid"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-save">💾 16枚に分割して保存</button>
+      <button class="btn btn-secondary" id="btn-reset">やり直す</button>
+    </div>
+  </div>
+
+  <div id="result-section" class="card">
+    <div class="result-box">
+      <div class="result-icon">✅</div>
+      <h3>保存しました</h3>
+      <div style="color:#374151;">保存場所：</div>
+      <div class="result-path" id="result-path"></div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" id="btn-another">別の画像を分割する</button>
+        <a href="/" class="btn btn-secondary">エディターへ戻る</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+var splitDataUrls = [];
+var selectedType = 'portraits';
+
+window.addEventListener('DOMContentLoaded', function() {
+  loadProjects();
+  updateTypeDesc();
+
+  document.getElementById('project-name').addEventListener('input', updateTypeDesc);
+
+  document.getElementById('opt-portraits').addEventListener('click', function() { selectType('portraits'); });
+  document.getElementById('opt-inserts').addEventListener('click', function() { selectType('inserts'); });
+
+  var dz = document.getElementById('drop-zone');
+  var fi = document.getElementById('file-input');
+  dz.addEventListener('click', function() { fi.click(); });
+  dz.addEventListener('dragover', function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', function() { dz.classList.remove('drag-over'); });
+  dz.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    var file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) { handleFile(file); }
+    else { showToast('画像ファイルを選択してください'); }
+  });
+  fi.addEventListener('change', function() {
+    if (fi.files[0]) handleFile(fi.files[0]);
+    fi.value = '';
+  });
+
+  document.getElementById('btn-save').addEventListener('click', saveImages);
+  document.getElementById('btn-reset').addEventListener('click', resetAll);
+  document.getElementById('btn-another').addEventListener('click', resetAll);
+});
+
+function loadProjects() {
+  fetch('/api/projects').then(function(r) { return r.json(); }).then(function(list) {
+    var dl = document.getElementById('project-list');
+    while (dl.firstChild) dl.removeChild(dl.firstChild);
+    list.forEach(function(name) {
+      var opt = document.createElement('option');
+      opt.value = name;
+      dl.appendChild(opt);
+    });
+  }).catch(function() {});
+}
+
+function selectType(type) {
+  selectedType = type;
+  document.getElementById('opt-portraits').classList.toggle('selected', type === 'portraits');
+  document.getElementById('opt-inserts').classList.toggle('selected', type === 'inserts');
+  updateTypeDesc();
+  if (splitDataUrls.length === 16) renderPreview();
+}
+
+function updateTypeDesc() {
+  var name = document.getElementById('project-name').value.trim() || '作品名';
+  document.getElementById('type-desc').textContent =
+    '保存先：projects/' + name + '/images/' + selectedType + '/';
+  var b = document.getElementById('preview-type-badge');
+  if (b) b.textContent = selectedType === 'portraits' ? '（人物画像）' : '（挿絵画像）';
+}
+
+function handleFile(file) {
+  var pn = document.getElementById('project-name').value.trim();
+  if (!pn) { showToast('先に作品名を入力してください'); document.getElementById('project-name').focus(); return; }
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      splitDataUrls = splitImage(img);
+      renderPreview();
+      document.getElementById('preview-section').style.display = 'block';
+      document.getElementById('result-section').style.display = 'none';
+      document.getElementById('preview-section').scrollIntoView({ behavior: 'smooth' });
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function splitImage(img) {
+  var COLS = 4, ROWS = 4;
+  var pw = Math.floor(img.naturalWidth / COLS);
+  var ph = Math.floor(img.naturalHeight / ROWS);
+  var urls = [];
+  for (var r = 0; r < ROWS; r++) {
+    for (var c = 0; c < COLS; c++) {
+      var cv = document.createElement('canvas');
+      cv.width = pw; cv.height = ph;
+      cv.getContext('2d').drawImage(img, c * pw, r * ph, pw, ph, 0, 0, pw, ph);
+      urls.push(cv.toDataURL('image/png'));
+    }
+  }
+  return urls;
+}
+
+function renderPreview() {
+  var prefix = selectedType === 'portraits' ? 'portrait' : 'insert';
+  var grid = document.getElementById('preview-grid');
+  while (grid.firstChild) grid.removeChild(grid.firstChild);
+  splitDataUrls.forEach(function(dataUrl, i) {
+    var num = String(i + 1).padStart(3, '0');
+    var cell = document.createElement('div');
+    cell.className = 'preview-cell';
+    var numEl = document.createElement('div');
+    numEl.className = 'preview-num';
+    numEl.textContent = num;
+    var imgEl = document.createElement('img');
+    imgEl.src = dataUrl;
+    imgEl.alt = prefix + '_' + num;
+    var labelEl = document.createElement('input');
+    labelEl.type = 'text';
+    labelEl.placeholder = '説明（省略可）';
+    labelEl.id = 'label-' + i;
+    cell.appendChild(numEl);
+    cell.appendChild(imgEl);
+    cell.appendChild(labelEl);
+    grid.appendChild(cell);
+  });
+  updateTypeDesc();
+}
+
+function saveImages() {
+  var pn = document.getElementById('project-name').value.trim();
+  if (!pn) { showToast('作品名を入力してください'); return; }
+  if (splitDataUrls.length !== 16) { showToast('画像を選択してください'); return; }
+  var prefix = selectedType === 'portraits' ? 'portrait' : 'insert';
+  var images = splitDataUrls.map(function(dataUrl, i) {
+    var num = String(i + 1).padStart(3, '0');
+    var lel = document.getElementById('label-' + i);
+    return { filename: prefix + '_' + num + '.png', dataUrl: dataUrl, label: lel ? lel.value : '' };
+  });
+  var btn = document.getElementById('btn-save');
+  btn.textContent = '⏳ 保存中...';
+  btn.disabled = true;
+  fetch('/api/save-images', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectName: pn, imageType: selectedType, images: images }),
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    if (data.ok) {
+      document.getElementById('result-path').textContent = data.path;
+      document.getElementById('result-section').style.display = 'block';
+      document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+    } else {
+      showToast('保存失敗: ' + (data.error || '不明なエラー'));
+    }
+  }).catch(function(e) {
+    showToast('エラー: ' + e.message);
+  }).finally(function() {
+    btn.textContent = '💾 16枚に分割して保存';
+    btn.disabled = false;
+  });
+}
+
+function resetAll() {
+  splitDataUrls = [];
+  document.getElementById('preview-section').style.display = 'none';
+  document.getElementById('result-section').style.display = 'none';
+  var g = document.getElementById('preview-grid');
+  while (g.firstChild) g.removeChild(g.firstChild);
+  document.getElementById('project-name').value = '';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  loadProjects();
+}
+
+function showToast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 3500);
+}
+</script>
+</body>
+</html>
