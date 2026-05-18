@@ -95,29 +95,6 @@ const BrandingTag: React.FC = () => (
   </AbsoluteFill>
 );
 
-const TitleBanner: React.FC = () => (
-  <AbsoluteFill style={{ pointerEvents: 'none' }}>
-    <div
-      style={{
-        position: 'absolute',
-        top: 550,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: '#ffffff',
-        color: '#000000',
-        fontFamily: '"Hiragino Kaku Gothic ProN", "Hiragino Sans", "Meiryo", sans-serif',
-        fontWeight: 'bold',
-        fontSize: 52,
-        padding: '18px 48px',
-        borderRadius: 8,
-        whiteSpace: 'nowrap',
-        letterSpacing: 4,
-      }}
-    >
-      平松悟の成功実績
-    </div>
-  </AbsoluteFill>
-);
 
 export const ShortVideo: React.FC<ShortVideoProps> = ({
   characterImages = DEFAULT_CHAR_IMAGES,
@@ -138,7 +115,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
 
     const loadSceneMap = fetch(staticFile(sceneMapFile))
       .then(r => r.json())
-      .then((data: SceneMapEntry[]) => setSceneMap(data))
+      .then((data: any) => setSceneMap(Array.isArray(data) ? data : []))
       .catch(() => setSceneMap([]));
 
     Promise.all([loadTranscript, loadSceneMap]).then(() => continueRender(handle));
@@ -160,14 +137,14 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
       }}
     >
       <Audio src={staticFile(transcript.audio)} volume={1.4} />
-      <Audio src={staticFile('sounds/bgm_morning.mp3')} volume={bgmVolume} />
+      {(transcript.bgm || 'sounds/bgm_morning.mp3') && (
+        <Audio src={staticFile(transcript.bgm || 'sounds/bgm_morning.mp3')} volume={bgmVolume} />
+      )}
 
       {/* 描画順: キャラ → 挿絵 → 強調テロップ → 字幕 */}
       <CharacterLayer segments={transcript.segments} characterImages={characterImages} />
       <IllustrationLayer sceneMap={sceneMap} />
-      <Sequence from={Math.round(7 * fps)} durationInFrames={Math.round(14 * fps)}>
-        <TitleBanner />
-      </Sequence>
+
       <EmphasisLayer segments={transcript.segments} />
       <SubtitleLayer segments={transcript.segments} />
       <BrandingTag />

@@ -205,6 +205,12 @@
     <span id="audio-filename">音声ファイルを読み込んでください</span>
     <label class="btn-audio" for="audio-file-input" style="cursor:pointer">📂 音声を開く</label>
     <input type="file" id="audio-file-input" accept=".mp3,.wav" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
+    <span style="margin-left:8px;font-size:12px;opacity:0.85;">🎼 BGM:</span>
+    <select id="bgm-select" class="btn-audio" style="padding:4px 8px;font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;max-width:200px;" onchange="onBgmChange(this.value)">
+      <option value="">（なし）</option>
+    </select>
+    <button class="btn-audio" onclick="previewBgm()" title="BGMをプレビュー再生">▶ 試聴</button>
+    <button class="btn-audio" onclick="stopBgmPreview()" title="BGMプレビュー停止">■ 停止</button>
     <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
   </div>
   <div id="waveform-container">
@@ -644,7 +650,8 @@ function renderTable() {
       { value: 'sounds/se_achievement.mp3',  label: '🏆 se_achievement（達成）' },
       { value: 'sounds/se_impact.mp3',       label: '💥 se_impact（インパクト）' },
       { value: 'sounds/se_treasure.mp3',     label: '💰 se_treasure（お宝・稼ぐ）' },
-      { value: 'sounds/se_money.mp3',        label: '🤑 se_money（マネー）' },
+      { value: 'sounds/se_coin.wav',          label: '🪙 se_coin（チャリンお金）' },
+      { value: 'sounds/se_money.mp3',        label: '😅 se_money（チーン残念）' },
       { value: 'sounds/se_drum.mp3',         label: '🥁 se_drum（ドラム）' },
       { value: 'sounds/se_applause.mp3',     label: '👏 se_applause（拍手）' },
       { value: 'sounds/se_sugoi.mp3',        label: '✨ se_sugoi（すごい）' },
@@ -1018,6 +1025,63 @@ window.onRowTimingChange = function(i, col, val) {
   }
 };
 
+// ── BGM 選択・試聴 ────────────────────────────────
+let bgmPreviewAudio = null;
+
+async function loadBgmList() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/bgm-files');
+    const files = await res.json(); // ['bgm_morning.mp3', ...]
+    const sel = document.getElementById('bgm-select');
+    files.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = 'sounds/' + f;
+      // ファイル名から表示名を作る: bgm_morning.mp3 → 🎼 morning
+      opt.textContent = '🎼 ' + f.replace(/^bgm_/, '').replace(/\.(mp3|wav)$/, '');
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+function onBgmChange(val) {
+  stopBgmPreview();
+  // transcript.json の bgm フィールドを更新して保存
+  saveBgmToTranscript(val);
+}
+
+async function saveBgmToTranscript(bgmPath) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.bgm = bgmPath || null;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    console.log('✅ BGM保存:', bgmPath);
+  } catch (e) { console.error('BGM保存失敗:', e); }
+}
+
+function previewBgm() {
+  const val = document.getElementById('bgm-select').value;
+  if (!val) return;
+  stopBgmPreview();
+  bgmPreviewAudio = new Audio('/' + val);
+  bgmPreviewAudio.volume = 0.4;
+  bgmPreviewAudio.play().catch(() => {});
+}
+
+function stopBgmPreview() {
+  if (bgmPreviewAudio) { bgmPreviewAudio.pause(); bgmPreviewAudio = null; }
+}
+
+// BGMリストを起動時に読み込む
+loadBgmList();
+
 // transcript.json ロード時にテーブルを初期化
 window.onSegmentsLoaded = function(segments) {
   if (rows.length > 0) return; // CSV がすでに読み込まれていれば上書きしない
@@ -1057,6 +1121,37 @@ let segments = [];       // transcript.json の segments
 let regionMap = new Map(); // segId(string) → region オブジェクト
 let activeRegionId = null; // 再生中のセグメント ID
 
+// ── 効果音プレビュー ───────────────────────────
+let triggeredSoundIds = new Set(); // 再生済みセグメントID（シーク時にリセット）
+const sfxCache = new Map();        // Audio オブジェクトのキャッシュ
+
+function getSoundForSegment(id) {
+  // 編集中のCSV行から優先取得（未保存でも反映）
+  if (window._headers && window._rows) {
+    const idCol = window._headers.indexOf('id');
+    const soundCol = window._headers.indexOf('sound');
+    if (idCol >= 0 && soundCol >= 0) {
+      const row = window._rows.find(r => parseInt(r[idCol]) === id);
+      if (row && row[soundCol]) return row[soundCol];
+    }
+  }
+  // フォールバック: transcript segments から
+  const seg = segments.find(s => s.id === id);
+  return seg?.sound || null;
+}
+
+function playSoundEffect(soundPath) {
+  // soundPath 例: "sounds/se_coin.wav" → /sounds/se_coin.wav で配信
+  const url = '/' + soundPath;
+  let audio = sfxCache.get(url);
+  if (!audio) {
+    audio = new Audio(url);
+    sfxCache.set(url, audio);
+  }
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
 // ── WaveSurfer 初期化 ──────────────────────────
 function initWaveSurfer() {
   if (ws) { ws.destroy(); regionMap.clear(); activeRegionId = null; }
@@ -1079,7 +1174,7 @@ function initWaveSurfer() {
   // 波形クリックで再生
   ws.on('click', () => { ws.play(); });
 
-  // 再生位置に合わせてテロップをハイライト
+  // 再生位置に合わせてテロップをハイライト＋効果音トリガー
   ws.on('timeupdate', (currentTime) => {
     const seg = segments.find(s => s.start <= currentTime && currentTime < s.end);
     const newId = seg ? String(seg.id) : null;
@@ -1094,9 +1189,19 @@ function initWaveSurfer() {
       const cur = regionMap.get(newId);
       if (cur && cur.element) cur.element.style.outline = '3px solid #ef4444';
       if (window.highlightRow) window.highlightRow(parseInt(newId));
+      // 効果音を再生（再生中かつ未トリガーのセグメントのみ）
+      if (ws.isPlaying() && !triggeredSoundIds.has(newId)) {
+        const sound = getSoundForSegment(parseInt(newId));
+        if (sound) playSoundEffect(sound);
+        triggeredSoundIds.add(newId);
+      }
     }
     activeRegionId = newId;
   });
+
+  // シーク・再生開始時にトリガー済みリセット（同じ箇所を何度でも鳴らせる）
+  ws.on('seeking', () => { triggeredSoundIds.clear(); });
+  ws.on('play',    () => { triggeredSoundIds.clear(); });
 
   // ドラッグで start/end 更新
   wsRegions.on('region-updated', (region) => {
@@ -1159,6 +1264,20 @@ async function loadTranscript() {
     if (data.segments && data.segments.length > 0) {
       segments = data.segments.map(s => ({ ...s }));
       if (window.onSegmentsLoaded) window.onSegmentsLoaded(segments);
+    }
+    // BGM 選択欄を復元
+    if (data.bgm) {
+      const sel = document.getElementById('bgm-select');
+      // 既存オプションに一致すれば選択、なければ追加
+      let found = Array.from(sel.options).find(o => o.value === data.bgm);
+      if (!found) {
+        const opt = document.createElement('option');
+        opt.value = data.bgm;
+        opt.textContent = '🎼 ' + data.bgm.replace('sounds/', '').replace(/^bgm_/, '').replace(/\.(mp3|wav)$/, '');
+        sel.appendChild(opt);
+        found = opt;
+      }
+      sel.value = data.bgm;
     }
   } catch {}
 }

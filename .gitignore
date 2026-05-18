@@ -18,6 +18,9 @@ public/audio/
 public/illustrations/
 public/sounds/*.mp3
 public/sounds/*.wav
+!public/sounds/bgm_*.mp3
+!public/sounds/se_*.mp3
+!public/sounds/se_*.wav
 public/transcript.json
 public/bgm/
 

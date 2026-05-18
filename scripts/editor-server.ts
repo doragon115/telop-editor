@@ -226,6 +226,36 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // GET /api/bgm-files → public/sounds/ の bgm_*.mp3|wav 一覧を返す
+  if (req.method === 'GET' && url.pathname === '/api/bgm-files') {
+    const soundsDir = path.resolve('public/sounds');
+    let bgmFiles: string[] = [];
+    try {
+      bgmFiles = fs.readdirSync(soundsDir).filter(f =>
+        /^bgm_.*\.(mp3|wav)$/i.test(f)
+      ).sort();
+    } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(bgmFiles));
+    return;
+  }
+
+  // GET /sounds/:file → public/sounds/ から効果音ファイルを配信
+  if (req.method === 'GET' && url.pathname.startsWith('/sounds/')) {
+    const fileName = decodeURIComponent(url.pathname.slice('/sounds/'.length));
+    const soundsDir = path.resolve('public/sounds');
+    const filePath = path.resolve(soundsDir, fileName);
+    if (!filePath.startsWith(soundsDir) || !fs.existsSync(filePath)) {
+      res.writeHead(404); res.end('Sound not found'); return;
+    }
+    const ext = path.extname(fileName).toLowerCase();
+    const mime = ext === '.mp3' ? 'audio/mpeg' : 'audio/wav';
+    const stat = fs.statSync(filePath);
+    res.writeHead(200, { 'Content-Type': mime, 'Content-Length': stat.size });
+    fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
   // GET /image-splitter → image-splitter.html を返す
   if (req.method === 'GET' && url.pathname === '/image-splitter') {
     try {
