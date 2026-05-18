@@ -144,8 +144,8 @@
   <div class="waveform-header">
     🎵 波形エディター
     <span id="audio-filename">音声ファイルを読み込んでください</span>
-    <button class="btn-audio" id="btn-open-audio" onclick="document.getElementById('audio-file-input').click()">📂 音声を開く</button>
-    <input type="file" id="audio-file-input" accept=".mp3,.wav" style="display:none">
+    <label class="btn-audio" for="audio-file-input" style="cursor:pointer">📂 音声を開く</label>
+    <input type="file" id="audio-file-input" accept=".mp3,.wav" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
     <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
   </div>
   <div id="waveform-container">
@@ -905,7 +905,7 @@ function initWaveSurfer() {
   });
 
   // 波形クリックで再生
-  ws.on('interaction', () => { ws.play(); });
+  ws.on('click', () => { ws.play(); });
 
   // 再生位置に合わせてテロップをハイライト
   ws.on('timeupdate', (currentTime) => {
