@@ -1,8 +1,11 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { runImport } from './import-csv';
+
+// Remotion Studio の起動状態管理
+let studioProcess: ReturnType<typeof spawn> | null = null;
 
 const PORT = 3001;
 const CSV_PATH = path.resolve('input/subtitles.csv');
@@ -333,6 +336,49 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: String(e) }));
       }
     });
+    return;
+  }
+
+  // GET /api/studio-status → port 3000 が応答中か確認
+  if (req.method === 'GET' && url.pathname === '/api/studio-status') {
+    const check = http.get({ hostname: 'localhost', port: 3000, path: '/', timeout: 1000 }, (r) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ running: true, statusCode: r.statusCode }));
+    });
+    check.on('error', () => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ running: false }));
+    });
+    check.on('timeout', () => {
+      check.destroy();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ running: false }));
+    });
+    return;
+  }
+
+  // POST /api/studio-start → Remotion Studio を起動
+  if (req.method === 'POST' && url.pathname === '/api/studio-start') {
+    if (studioProcess && !studioProcess.killed) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, message: 'すでに起動中' }));
+      return;
+    }
+    try {
+      const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      studioProcess = spawn(npmCmd, ['run', 'studio'], {
+        cwd: path.resolve('.'),
+        stdio: 'ignore',
+        detached: false,
+      });
+      studioProcess.on('exit', () => { studioProcess = null; });
+      console.log('🎬 Remotion Studio 起動中...');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, message: '起動しました（数秒お待ちください）' }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(e) }));
+    }
     return;
   }
 

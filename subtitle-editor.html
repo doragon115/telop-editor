@@ -146,12 +146,23 @@
 </head>
 <body>
 
-<header>
-  <h1>🎬 テロップエディター</h1>
-  <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
-  <nav style="margin-top:10px;">
-    <a href="/image-splitter" style="color:rgba(255,255,255,0.9);font-size:13px;text-decoration:none;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);">🖼️ 画像分割ツール</a>
-  </nav>
+<header style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>🎬 テロップエディター</h1>
+    <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
+    <nav style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <a href="/image-splitter" style="color:rgba(255,255,255,0.9);font-size:13px;text-decoration:none;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);">🖼️ 画像分割ツール</a>
+    </nav>
+  </div>
+  <button id="remotion-btn"
+    onclick="openRemotionStudio()"
+    style="background:linear-gradient(135deg,#f59e0b,#f97316);color:white;border:none;border-radius:14px;padding:16px 28px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.25);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:160px;transition:transform 0.1s,box-shadow 0.1s;"
+    onmouseover="this.style.transform='scale(1.04)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'"
+    onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.25)'">
+    <span style="font-size:28px;line-height:1;">🎥</span>
+    <span>Remotion を開く</span>
+    <span id="remotion-btn-sub" style="font-size:11px;opacity:0.85;font-weight:normal;">プレビュー・書き出し</span>
+  </button>
 </header>
 
 <!-- 初心者向けガイド -->
@@ -1108,6 +1119,65 @@ async function saveVolumeToTranscript(volume) {
     });
     console.log('✅ 音量保存:', volume);
   } catch (e) { console.error('音量保存失敗:', e); }
+}
+
+// ── Remotion Studio 起動 ─────────────────────────
+async function openRemotionStudio() {
+  const btn = document.getElementById('remotion-btn');
+  const sub = document.getElementById('remotion-btn-sub');
+  btn.style.opacity = '0.7';
+  btn.style.pointerEvents = 'none';
+
+  // まず起動中か確認
+  try {
+    const statusRes = await fetch('/api/studio-status');
+    const status = await statusRes.json();
+
+    if (status.running) {
+      // すでに起動中 → そのまま開く
+      sub.textContent = '接続中...';
+      window.open('http://localhost:3000', '_blank');
+      setTimeout(() => {
+        sub.textContent = 'プレビュー・書き出し';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = '';
+      }, 1500);
+      return;
+    }
+
+    // 未起動 → 起動リクエスト
+    sub.textContent = '🚀 起動中...';
+    await fetch('/api/studio-start', { method: 'POST' });
+
+    // 最大20秒ポーリングして起動待ち
+    let ready = false;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      sub.textContent = `🕐 起動待ち (${i + 1}秒)...`;
+      try {
+        const s = await fetch('/api/studio-status');
+        const sv = await s.json();
+        if (sv.running) { ready = true; break; }
+      } catch {}
+    }
+
+    if (ready) {
+      sub.textContent = '✅ 起動完了！';
+      window.open('http://localhost:3000', '_blank');
+    } else {
+      sub.textContent = '⚠️ タイムアウト';
+      alert('Remotion Studio の起動がタイムアウトしました。\nターミナルで「npm run studio」を実行してください。');
+    }
+  } catch (e) {
+    sub.textContent = '❌ エラー';
+    alert('起動に失敗しました。ターミナルで「npm run studio」を実行してください。');
+  }
+
+  setTimeout(() => {
+    sub.textContent = 'プレビュー・書き出し';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = '';
+  }, 3000);
 }
 
 // BGMリストを起動時に読み込む
