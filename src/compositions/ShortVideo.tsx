@@ -136,7 +136,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
         background: 'linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
       }}
     >
-      <Audio src={staticFile(transcript.audio)} volume={1.4} />
+      <Audio src={staticFile(transcript.audio)} volume={transcript.volume ?? 3.0} />
       {(transcript.bgm || 'sounds/bgm_morning.mp3') && (
         <Audio src={staticFile(transcript.bgm || 'sounds/bgm_morning.mp3')} volume={bgmVolume} />
       )}

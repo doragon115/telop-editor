@@ -25,4 +25,6 @@ export interface Transcript {
   audio: string;       // path relative to public/ e.g. "audio/episode.m4a"
   duration: number;    // total seconds
   segments: Segment[];
+  bgm?: string;        // path relative to public/ e.g. "sounds/bgm_morning.mp3"
+  volume?: number;     // 音声ボリューム倍率（デフォルト 3.0）
 }

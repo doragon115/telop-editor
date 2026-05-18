@@ -211,6 +211,11 @@
     </select>
     <button class="btn-audio" onclick="previewBgm()" title="BGMをプレビュー再生">▶ 試聴</button>
     <button class="btn-audio" onclick="stopBgmPreview()" title="BGMプレビュー停止">■ 停止</button>
+    <span style="margin-left:12px;font-size:12px;opacity:0.85;">🔊 音量:</span>
+    <input type="range" id="voice-volume" min="0.5" max="6" step="0.1" value="3.0"
+      style="width:90px;cursor:pointer;vertical-align:middle;accent-color:#60a5fa;"
+      oninput="onVolumeChange(this.value)">
+    <span id="voice-volume-label" style="font-size:12px;min-width:30px;text-align:right;">3.0×</span>
     <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
   </div>
   <div id="waveform-container">
@@ -656,7 +661,7 @@ function renderTable() {
       { value: 'sounds/se_applause.mp3',     label: '👏 se_applause（拍手）' },
       { value: 'sounds/se_sugoi.mp3',        label: '✨ se_sugoi（すごい）' },
       { value: 'sounds/se_pikon.mp3',        label: '🔔 se_pikon（ピコン）' },
-      { value: 'sounds/se_notice.mp3',       label: '📢 se_notice（お知らせ）' },
+      { value: 'sounds/se_notice.mp3',       label: '🤔 se_notice（あれ？）' },
       { value: 'sounds/se_sigh.mp3',         label: '😮‍💨 se_sigh（ため息）' },
     ];
     SOUNDS.forEach(({ value, label }) => {
@@ -1079,6 +1084,32 @@ function stopBgmPreview() {
   if (bgmPreviewAudio) { bgmPreviewAudio.pause(); bgmPreviewAudio = null; }
 }
 
+// ── 音量調整 ──────────────────────────────────────
+let _volumeSaveTimer = null;
+function onVolumeChange(val) {
+  const v = parseFloat(val);
+  document.getElementById('voice-volume-label').textContent = v.toFixed(1) + '×';
+  // デバウンス: 500ms 後に保存
+  clearTimeout(_volumeSaveTimer);
+  _volumeSaveTimer = setTimeout(() => saveVolumeToTranscript(v), 500);
+}
+
+async function saveVolumeToTranscript(volume) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.volume = volume;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    console.log('✅ 音量保存:', volume);
+  } catch (e) { console.error('音量保存失敗:', e); }
+}
+
 // BGMリストを起動時に読み込む
 loadBgmList();
 
@@ -1268,7 +1299,6 @@ async function loadTranscript() {
     // BGM 選択欄を復元
     if (data.bgm) {
       const sel = document.getElementById('bgm-select');
-      // 既存オプションに一致すれば選択、なければ追加
       let found = Array.from(sel.options).find(o => o.value === data.bgm);
       if (!found) {
         const opt = document.createElement('option');
@@ -1278,6 +1308,12 @@ async function loadTranscript() {
         found = opt;
       }
       sel.value = data.bgm;
+    }
+    // 音量スライダーを復元
+    if (data.volume != null) {
+      const slider = document.getElementById('voice-volume');
+      slider.value = data.volume;
+      document.getElementById('voice-volume-label').textContent = parseFloat(data.volume).toFixed(1) + '×';
     }
   } catch {}
 }
