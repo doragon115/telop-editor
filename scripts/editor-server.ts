@@ -88,7 +88,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/audio-files → input/audio/ または input/ の .mp3/.wav 一覧を返す
+  // GET /api/audio-files → input/audio/ を優先、なければ input/ 直下も返す
   if (req.method === 'GET' && url.pathname === '/api/audio-files') {
     const isAudio = (f: string) => f.endsWith('.mp3') || f.endsWith('.wav');
     const candidates: Array<{ file: string; dir: string }> = [];
@@ -97,13 +97,11 @@ const server = http.createServer((req, res) => {
       const d = path.resolve('input/audio');
       fs.readdirSync(d).filter(isAudio).forEach(f => candidates.push({ file: f, dir: 'audio' }));
     } catch {}
-    // input/ 直下もスキャン（input/audio/ が空 or 存在しない場合の fallback）
-    if (candidates.length === 0) {
-      try {
-        const d = path.resolve('input');
-        fs.readdirSync(d).filter(isAudio).forEach(f => candidates.push({ file: f, dir: 'input' }));
-      } catch {}
-    }
+    // input/ 直下もスキャン（フォールバック）
+    try {
+      const d = path.resolve('input');
+      fs.readdirSync(d).filter(isAudio).forEach(f => candidates.push({ file: f, dir: 'input' }));
+    } catch {}
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(candidates));
     return;
@@ -134,17 +132,97 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // GET /api/transcript → input/transcript.json を返す
+  // GET /api/transcript → input/transcript.json を返す（なければ input/ を自動スキャン）
   if (req.method === 'GET' && url.pathname === '/api/transcript') {
     const transcriptPath = path.resolve('input/transcript.json');
-    try {
-      const data = fs.readFileSync(transcriptPath, 'utf-8');
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(data);
-    } catch {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'transcript.json not found' }));
+    // transcript.json が存在すればそのまま返す
+    if (fs.existsSync(transcriptPath)) {
+      try {
+        const data = fs.readFileSync(transcriptPath, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(data);
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'read error' }));
+      }
+      return;
     }
+    // なければ input/ 内の *.json を自動スキャンして segments があるものを使用
+    try {
+      const inputDir = path.resolve('input');
+      const jsonFiles = fs.readdirSync(inputDir).filter(f =>
+        f.endsWith('.json') &&
+        f !== 'scene-map.json' &&
+        !f.startsWith('transcript.backup')
+      );
+      for (const f of jsonFiles) {
+        const fp = path.resolve(inputDir, f);
+        try {
+          const content = fs.readFileSync(fp, 'utf-8');
+          const parsed = JSON.parse(content);
+          if (parsed.segments && Array.isArray(parsed.segments)) {
+            fs.copyFileSync(fp, transcriptPath);
+            console.log(`🔍 自動検出: ${f} → transcript.json にコピー`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(content);
+            return;
+          }
+        } catch {}
+      }
+    } catch {}
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'transcript.json not found' }));
+    return;
+  }
+
+  // POST /api/transcript → transcript.json を保存し、subtitles.csv も自動生成
+  if (req.method === 'POST' && url.pathname === '/api/transcript') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const json = JSON.parse(body);
+        if (!json.segments || !Array.isArray(json.segments)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'segments が見つかりません' }));
+          return;
+        }
+        // transcript.json 保存
+        const transcriptPath = path.resolve('input/transcript.json');
+        fs.writeFileSync(transcriptPath, JSON.stringify(json, null, 2), 'utf-8');
+        // subtitles.csv 自動生成
+        const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+        const csvRows: (string | number)[][] = [csvHeaders];
+        for (const seg of json.segments) {
+          csvRows.push([
+            seg.id ?? '',
+            seg.start ?? 0,
+            seg.end ?? 0,
+            seg.text ?? '',
+            seg.style?.fontSize ?? 68,
+            seg.style?.color ?? '#ffffff',
+            seg.style?.strokeColor ?? '#000000',
+            seg.style?.fontWeight ?? 900,
+            seg.style?.bgColor ?? '',
+            seg.style?.bgOpacity ?? 80,
+            seg.sound ?? '',
+            seg.posY ?? '',
+          ]);
+        }
+        const esc = (v: string | number) => {
+          const s = String(v);
+          return (s.includes(',') || s.includes('\n') || s.includes('"')) ? `"${s.replace(/"/g, '""')}"` : s;
+        };
+        const csv = csvRows.map(r => r.map(esc).join(',')).join('\n');
+        fs.writeFileSync(CSV_PATH, csv, 'utf-8');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, count: json.segments.length }));
+        console.log(`✅ transcript.json + subtitles.csv 自動生成: ${json.segments.length} セグメント`);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
     return;
   }
 

@@ -129,14 +129,48 @@
   <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
 </header>
 
+<!-- 初心者向けガイド -->
+<div id="setup-guide" style="background:#fffbeb;border-bottom:2px solid #fde68a;padding:14px 32px;font-size:13px;line-height:1.8;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <strong style="font-size:14px;">🚀 はじめての方へ：2ステップで準備完了</strong>
+    <button onclick="document.getElementById('setup-guide').style.display='none'" style="margin-left:auto;border:none;background:transparent;font-size:18px;cursor:pointer;color:#999" title="閉じる">✕</button>
+  </div>
+  <div style="display:flex;gap:32px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#f59e0b;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">1</span>
+      <div>
+        <strong>音声ファイルを入れる</strong><br>
+        <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">input/</code> フォルダに <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.mp3</code> または <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.wav</code> を入れる
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#f59e0b;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">2</span>
+      <div>
+        <strong>テロップデータを入れる</strong><br>
+        <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">input/</code> フォルダに <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.json</code> ファイルを入れる<br>
+        <span style="font-size:11px;color:#92400e;">または下の「📄 JSONを読み込む」ボタンで直接選択</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#10b981;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">✓</span>
+      <div>
+        <strong>ページを再読み込み（Cmd+R）</strong><br>
+        音声と波形・テロップが自動で読み込まれます
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toolbar">
   <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">📂 CSVを開く</button>
   <input type="file" id="file-input" accept=".csv" style="display:none">
+  <label class="btn btn-secondary" for="json-file-input" style="cursor:pointer;display:inline-flex;align-items:center;">📄 JSONを読み込む</label>
+  <input type="file" id="json-file-input" accept=".json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
   <button class="btn btn-success" onclick="saveCSV()">💾 CSVを保存</button>
   <button class="btn btn-update" id="btn-update" onclick="saveAndImport()" style="display:none">⚡️ 保存して更新 <span style="font-size:11px;opacity:0.75;">⌘↵</span></button>
   <button class="btn btn-secondary" onclick="resetStyles()">🔄 スタイルをリセット</button>
   <span id="server-badge" style="display:none; font-size:12px; background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:20px; font-weight:bold;">⚡️ サーバーモード（自動保存）</span>
-  <span class="hint">① export:csv → ② エディターで編集 → ③ 保存 → ④ import:csv → ⑤ render</span>
+  <span class="hint">編集が終わったら「⚡️ 保存して更新」→ Remotion で render</span>
 </div>
 
 <!-- 波形セクション -->
@@ -155,22 +189,24 @@
   <div class="overlap-warning" id="overlap-warning">⚠️ タイムスタンプが重なっているテロップがあります</div>
   <div class="shift-controls">
     <span class="shift-label">全体シフト:</span>
-    <button class="btn-shift" onclick="shiftAll(-1)">◀ -1s</button>
-    <button class="btn-shift" onclick="shiftAll(+1)">+1s ▶</button>
+    <button class="btn-shift" onclick="shiftAll(-1)" title="全テロップを1秒早める">⏪ 全体 -1s（早める）</button>
+    <button class="btn-shift" onclick="shiftAll(+1)" title="全テロップを1秒遅らせる">全体 +1s（遅らせる）⏩</button>
     <span class="shift-label" style="margin-left:12px">選択シフト:</span>
     <input type="number" id="shift-amount" class="shift-amount" value="0.5" min="0.1" max="5" step="0.1">
     <span class="shift-label">秒</span>
-    <button class="btn-shift primary" onclick="shiftSelected(-1)">◀ 選択を戻す</button>
-    <button class="btn-shift primary" onclick="shiftSelected(+1)">選択を進める ▶</button>
+    <button class="btn-shift primary" onclick="shiftSelected(-1)" title="選択中のテロップを早める">⏪ 選択を早める</button>
+    <button class="btn-shift primary" onclick="shiftSelected(+1)" title="選択中のテロップを遅らせる">選択を遅らせる ⏩</button>
   </div>
 </div>
 
 <div class="container">
   <div id="drop-zone">
-    <div style="font-size:48px">📄</div>
-    <strong>subtitles.csv をここにドロップ</strong>
-    <div class="sub">または クリックしてファイルを選択</div>
-    <div class="sub" style="margin-top:8px;font-size:12px;color:#aaa">場所: auto-short-video-maker / input / subtitles.csv</div>
+    <div style="font-size:48px">📂</div>
+    <strong>テロップJSON または subtitles.csv をここにドロップ</strong>
+    <div class="sub">または上の「📄 JSONを読み込む」「📂 CSVを開く」ボタンを使用</div>
+    <div class="sub" style="margin-top:8px;font-size:12px;color:#10b981;font-weight:bold;">
+      💡 input/ フォルダに .json を入れてリロードすると自動で読み込まれます
+    </div>
   </div>
 
   <div id="table-wrap" style="display:none">
@@ -210,19 +246,36 @@ let serverMode = false; // localhost:3001 経由で開いている場合はtrue
 // ── サーバーモード検出 & 自動ロード ──────────────
 (async function initServerMode() {
   if (location.hostname !== 'localhost' || location.port !== '3001') return;
+  serverMode = true;
+  document.getElementById('server-badge').style.display = 'inline-block';
+  document.getElementById('btn-update').style.display = 'inline-block';
+  document.querySelector('.btn-success').textContent = '💾 保存（自動書込み）';
+
+  // transcript が JSON として読める場合はそれを優先（CSVが古い場合に自動同期）
+  try {
+    const tjRes = await fetch('/api/transcript');
+    if (tjRes.ok) {
+      const json = await tjRes.json();
+      if (json.segments) {
+        // transcript → CSV を同期して保存
+        const syncRes = await fetch('/api/transcript', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json),
+        });
+        if (syncRes.ok) {
+          const csvRes = await fetch('/api/csv');
+          if (csvRes.ok) { loadCSV(await csvRes.text()); return; }
+        }
+      }
+    }
+  } catch {}
+
+  // fallback: CSV を直接読み込む
   try {
     const res = await fetch('/api/csv');
-    if (!res.ok) return;
-    const text = await res.text();
-    serverMode = true;
-    document.getElementById('server-badge').style.display = 'inline-block';
-    document.getElementById('btn-update').style.display = 'inline-block';
-    // 保存ボタンのラベルを変更
-    document.querySelector('.btn-success').textContent = '💾 保存（自動書込み）';
-    loadCSV(text);
-  } catch {
-    // サーバーなし → 通常モード
-  }
+    if (res.ok) { loadCSV(await res.text()); }
+  } catch {}
 })();
 
 // ── CSV パーサー ──────────────────────────────
@@ -295,6 +348,64 @@ function loadCSV(csvText) {
   });
 
   renderTable();
+}
+
+// ── JSON 読み込み（segments → CSV変換してテーブルに反映）──
+function loadTranscriptJSON(json) {
+  if (!json.segments || !Array.isArray(json.segments)) {
+    showToast('❌ 有効なテロップJSONではありません（segmentsがありません）');
+    return;
+  }
+  const cols = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  headers = cols;
+  rows = json.segments.map(seg => [
+    String(seg.id ?? ''),
+    String(seg.start ?? 0),
+    String(seg.end ?? 0),
+    seg.text ?? '',
+    String(seg.style?.fontSize ?? 68),
+    seg.style?.color ?? '#ffffff',
+    seg.style?.strokeColor ?? '#000000',
+    String(seg.style?.fontWeight ?? 900),
+    seg.style?.bgColor ?? '',
+    String(seg.style?.bgOpacity ?? 80),
+    seg.sound ?? '',
+    String(seg.posY ?? ''),
+  ]);
+  renderTable();
+  showToast(`✅ ${rows.length} 件のテロップを読み込みました`);
+  if (window.onSegmentsLoaded) window.onSegmentsLoaded(json.segments);
+}
+
+async function handleJSONFile(file) {
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    if (!json.segments) { showToast('❌ segmentsが見つかりません'); return; }
+    if (serverMode) {
+      // サーバーに保存してCSVも自動生成
+      const res = await fetch('/api/transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast('❌ 保存失敗: ' + data.error); return; }
+      // CSVをサーバーから再取得してテーブル更新
+      const csvRes = await fetch('/api/csv');
+      if (csvRes.ok) {
+        const csvText = await csvRes.text();
+        loadCSV(csvText);
+        showToast(`✅ ${data.count} 件のテロップを保存・読み込みました`);
+      } else {
+        loadTranscriptJSON(json);
+      }
+    } else {
+      loadTranscriptJSON(json);
+    }
+  } catch (e) {
+    showToast('❌ JSON解析エラー: ' + e.message);
+  }
 }
 
 // ── テーブル描画 ──────────────────────────────
@@ -746,7 +857,7 @@ function resetStyles() {
   renderTable();
 }
 
-// ── ファイル入力 ──────────────────────────────
+// ── ファイル入力（CSV）──────────────────────────
 document.getElementById('file-input').addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
@@ -756,7 +867,15 @@ document.getElementById('file-input').addEventListener('change', function() {
   this.value = '';
 });
 
-// ── ドラッグ&ドロップ ─────────────────────────
+// ── ファイル入力（JSON）──────────────────────────
+document.getElementById('json-file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  handleJSONFile(file);
+  this.value = '';
+});
+
+// ── ドラッグ&ドロップ（CSV / JSON 両対応）────────
 const dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = '#eff6ff'; });
 dz.addEventListener('dragleave', () => { dz.style.background = 'white'; });
@@ -765,9 +884,13 @@ dz.addEventListener('drop', e => {
   dz.style.background = 'white';
   const file = e.dataTransfer.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = ev => loadCSV(ev.target.result);
-  reader.readAsText(file, 'utf-8');
+  if (file.name.endsWith('.json')) {
+    handleJSONFile(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = ev => loadCSV(ev.target.result);
+    reader.readAsText(file, 'utf-8');
+  }
 });
 dz.addEventListener('click', () => document.getElementById('file-input').click());
 
@@ -1032,10 +1155,10 @@ document.addEventListener('keydown', (e) => {
     ws.playPause();
   } else if (e.code === 'ArrowLeft') {
     e.preventDefault();
-    ws.skip(-0.033);
+    ws.skip(0.033);
   } else if (e.code === 'ArrowRight') {
     e.preventDefault();
-    ws.skip(0.033);
+    ws.skip(-0.033);
   }
 });
 
