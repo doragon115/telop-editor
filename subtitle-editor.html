@@ -100,6 +100,26 @@
 
   /* エラートースト */
   #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #dc2626; color: white; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: bold; display: none; z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+
+  /* 波形セクション */
+  .waveform-section { background: white; margin: 0 32px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+  .waveform-header { background: #1a56db; color: white; padding: 10px 20px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .waveform-header .btn-audio { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .waveform-header .btn-audio:hover { background: rgba(255,255,255,0.3); }
+  .waveform-header .shortcut-hint { font-size: 11px; opacity: 0.7; margin-left: auto; }
+  #waveform-container { padding: 12px 16px 4px; min-height: 96px; position: relative; background: #f8faff; }
+  #waveform-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #888; font-size: 13px; text-align: center; width: 100%; }
+  #waveform { overflow-x: auto; }
+  .overlap-warning { background: #fef2f2; color: #dc2626; font-size: 12px; padding: 6px 16px; display: none; }
+  .shift-controls { padding: 8px 16px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px solid #f0f0f0; }
+  .shift-label { font-size: 12px; color: #666; white-space: nowrap; }
+  .btn-shift { padding: 5px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; font-size: 12px; cursor: pointer; font-weight: bold; }
+  .btn-shift:hover { background: #e5e7eb; }
+  .btn-shift.primary { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  .shift-amount { width: 60px; border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; font-size: 12px; text-align: center; }
+  #audio-filename { font-size: 12px; opacity: 0.8; }
+  /* チェックボックス列 */
+  .check-cell { width: 36px; text-align: center; padding: 4px; }
 </style>
 </head>
 <body>
@@ -119,6 +139,32 @@
   <span class="hint">① export:csv → ② エディターで編集 → ③ 保存 → ④ import:csv → ⑤ render</span>
 </div>
 
+<!-- 波形セクション -->
+<div class="waveform-section" id="waveform-section">
+  <div class="waveform-header">
+    🎵 波形エディター
+    <span id="audio-filename">音声ファイルを読み込んでください</span>
+    <button class="btn-audio" id="btn-open-audio" onclick="document.getElementById('audio-file-input').click()">📂 音声を開く</button>
+    <input type="file" id="audio-file-input" accept=".mp3,.wav" style="display:none">
+    <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
+  </div>
+  <div id="waveform-container">
+    <div id="waveform-loading">音声ファイルを検索中...</div>
+    <div id="waveform"></div>
+  </div>
+  <div class="overlap-warning" id="overlap-warning">⚠️ タイムスタンプが重なっているテロップがあります</div>
+  <div class="shift-controls">
+    <span class="shift-label">全体シフト:</span>
+    <button class="btn-shift" onclick="shiftAll(-1)">◀ -1s</button>
+    <button class="btn-shift" onclick="shiftAll(+1)">+1s ▶</button>
+    <span class="shift-label" style="margin-left:12px">選択シフト:</span>
+    <input type="number" id="shift-amount" class="shift-amount" value="0.5" min="0.1" max="5" step="0.1">
+    <span class="shift-label">秒</span>
+    <button class="btn-shift primary" onclick="shiftSelected(-1)">◀ 選択を戻す</button>
+    <button class="btn-shift primary" onclick="shiftSelected(+1)">選択を進める ▶</button>
+  </div>
+</div>
+
 <div class="container">
   <div id="drop-zone">
     <div style="font-size:48px">📄</div>
@@ -132,6 +178,7 @@
       <table>
         <thead>
           <tr>
+            <th style="width:36px;text-align:center"><input type="checkbox" id="check-all" onchange="toggleAllCheck(this.checked)" style="cursor:pointer" title="全選択"></th>
             <th style="width:36px"></th>
             <th style="width:90px">時間(秒)</th>
             <th style="min-width:260px">テロップ文字</th>
@@ -272,6 +319,17 @@ function renderTable() {
 
     const tr = document.createElement('tr');
 
+    // ── チェックボックス ──
+    const tdCheck = document.createElement('td');
+    tdCheck.className = 'check-cell';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'row-check';
+    chk.dataset.i = String(i);
+    chk.style.cursor = 'pointer';
+    tdCheck.appendChild(chk);
+    tr.appendChild(tdCheck);
+
     // ── 削除ボタン ──
     const tdDel = document.createElement('td');
     tdDel.className = 'del-cell';
@@ -301,6 +359,7 @@ function renderTable() {
       inp.addEventListener('change', () => {
         set(colName, inp.value);
         validateTimes(i, inp);
+        if (window.onRowTimingChange) window.onRowTimingChange(i, colName, inp.value);
       });
       return { lbl, inp };
     };
@@ -644,6 +703,20 @@ async function saveAndImport() {
   btn.textContent = '⏳ 保存中...';
   btn.disabled = true;
   try {
+    // 波形 segments の最終値を rows に同期
+    if (window.getSegments) {
+      const segs = window.getSegments();
+      const idCol    = headers.indexOf('id');
+      const startCol = headers.indexOf('start');
+      const endCol   = headers.indexOf('end');
+      segs.forEach(seg => {
+        const i = rows.findIndex(r => parseInt(r[idCol]) === seg.id);
+        if (i >= 0) {
+          rows[i][startCol] = String(seg.start);
+          rows[i][endCol]   = String(seg.end);
+        }
+      });
+    }
     await saveCSV();
     btn.textContent = '⏳ transcript更新中...';
     const res = await fetch('/api/import', { method: 'POST' });
@@ -708,6 +781,301 @@ document.addEventListener('keydown', e => {
     }
   }
 });
+
+// ── チェックボックスユーティリティ ───────────────
+function toggleAllCheck(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
+}
+
+function getSelectedIndices() {
+  return Array.from(document.querySelectorAll('.row-check:checked'))
+    .map(cb => parseInt(cb.dataset.i));
+}
+window.getSelectedIndices = getSelectedIndices;
+
+// rows / headers を外部モジュールから参照できるようにする
+Object.defineProperty(window, '_rows',    { get: () => rows });
+Object.defineProperty(window, '_headers', { get: () => headers });
+
+// ── 波形→テーブル 同期ブリッジ ─────────────────
+window.updateRowTiming = function(segId, start, end) {
+  const idCol    = headers.indexOf('id');
+  const startCol = headers.indexOf('start');
+  const endCol   = headers.indexOf('end');
+  const i = rows.findIndex(r => parseInt(r[idCol]) === segId);
+  if (i < 0) return;
+  rows[i][startCol] = String(start);
+  rows[i][endCol]   = String(end);
+  // テーブルの入力欄も更新
+  const tbody = document.getElementById('tbody');
+  if (!tbody) return;
+  const trs = tbody.querySelectorAll('tr');
+  if (!trs[i]) return;
+  const inputs = trs[i].querySelectorAll('input.time-input');
+  // inputs[0] = start, inputs[1] = end
+  if (inputs[0]) inputs[0].value = start;
+  if (inputs[1]) inputs[1].value = end;
+};
+
+// テーブル行ハイライト（波形ブロッククリック or 再生中）
+window.highlightRow = function(segId) {
+  const idCol = headers.indexOf('id');
+  const i = rows.findIndex(r => parseInt(r[idCol]) === segId);
+  if (i < 0) return;
+  const tbody = document.getElementById('tbody');
+  if (!tbody) return;
+  const allRows = tbody.querySelectorAll('tr');
+  allRows.forEach(tr => tr.style.background = '');
+  if (allRows[i]) {
+    allRows[i].style.background = '#fef9c3'; // 黄色ハイライト
+    allRows[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+};
+
+// テーブル→波形 同期（start/end 入力変更時）
+window.onRowTimingChange = function(i, col, val) {
+  const idCol = headers.indexOf('id');
+  const segId = parseInt(rows[i][idCol]);
+  if (window.getSegments) {
+    const seg = window.getSegments().find(s => s.id === segId);
+    if (seg) {
+      if (col === 'start') seg.start = parseFloat(val) || 0;
+      if (col === 'end')   seg.end   = parseFloat(val) || 0;
+      if (window.renderRegions) window.renderRegions();
+    }
+  }
+};
+
+// transcript.json ロード時にテーブルを初期化
+window.onSegmentsLoaded = function(segments) {
+  if (rows.length > 0) return; // CSV がすでに読み込まれていれば上書きしない
+  const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  headers = csvHeaders;
+  rows = segments.map(seg => [
+    String(seg.id),
+    String(seg.start),
+    String(seg.end),
+    seg.text || '',
+    '68',
+    '#ffffff',
+    '#000000',
+    '900',
+    '',
+    '80',
+    seg.sound || '',
+    String(seg.posY || 360),
+  ]);
+  renderTable();
+  // サーバーモードの UI も有効化
+  if (location.hostname === 'localhost') {
+    serverMode = true;
+    document.getElementById('server-badge').style.display = 'inline-block';
+    document.getElementById('btn-update').style.display = 'inline-block';
+  }
+};
+</script>
+
+<script type="module">
+import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
+import RegionsPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.esm.js';
+
+let ws = null;
+let wsRegions = null;
+let segments = [];       // transcript.json の segments
+let regionMap = new Map(); // segId(string) → region オブジェクト
+let activeRegionId = null; // 再生中のセグメント ID
+
+// ── WaveSurfer 初期化 ──────────────────────────
+function initWaveSurfer() {
+  if (ws) { ws.destroy(); regionMap.clear(); activeRegionId = null; }
+  wsRegions = RegionsPlugin.create();
+  ws = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: '#93c5fd',
+    progressColor: '#1a56db',
+    height: 80,
+    minPxPerSec: 50,
+    interact: true,
+    plugins: [wsRegions],
+  });
+
+  ws.on('ready', () => {
+    document.getElementById('waveform-loading').style.display = 'none';
+    renderRegions();
+  });
+
+  // 波形クリックで再生
+  ws.on('interaction', () => { ws.play(); });
+
+  // 再生位置に合わせてテロップをハイライト
+  ws.on('timeupdate', (currentTime) => {
+    const seg = segments.find(s => s.start <= currentTime && currentTime < s.end);
+    const newId = seg ? String(seg.id) : null;
+    if (newId === activeRegionId) return;
+    // 前のハイライトを解除
+    if (activeRegionId) {
+      const prev = regionMap.get(activeRegionId);
+      if (prev && prev.element) prev.element.style.outline = '';
+    }
+    // 新しいハイライトをセット
+    if (newId) {
+      const cur = regionMap.get(newId);
+      if (cur && cur.element) cur.element.style.outline = '3px solid #ef4444';
+      if (window.highlightRow) window.highlightRow(parseInt(newId));
+    }
+    activeRegionId = newId;
+  });
+
+  // ドラッグで start/end 更新
+  wsRegions.on('region-updated', (region) => {
+    const id = parseInt(region.id);
+    const seg = segments.find(s => s.id === id);
+    if (seg) {
+      seg.start = Math.round(region.start * 100) / 100;
+      seg.end   = Math.round(region.end   * 100) / 100;
+      if (window.updateRowTiming) window.updateRowTiming(id, seg.start, seg.end);
+    }
+    checkOverlaps();
+  });
+
+  // ブロッククリックでテーブル行ハイライト
+  wsRegions.on('region-clicked', (region, e) => {
+    e.stopPropagation();
+    if (window.highlightRow) window.highlightRow(parseInt(region.id));
+  });
+}
+
+// ── 音声ロード ─────────────────────────────────
+function loadAudioUrl(url, filename) {
+  document.getElementById('waveform-loading').style.display = '';
+  document.getElementById('waveform-loading').textContent = '波形を描画中...';
+  document.getElementById('audio-filename').textContent = filename;
+  initWaveSurfer();
+  ws.load(url);
+}
+
+// サーバーから音声ファイル一覧を取得して自動ロード
+async function autoLoadAudio() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/audio-files');
+    const files = await res.json();
+    if (files.length > 0) {
+      loadAudioUrl(`/audio/${encodeURIComponent(files[0])}`, files[0]);
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+// ファイルピッカーからの読み込み
+document.getElementById('audio-file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  loadAudioUrl(url, file.name);
+});
+
+// ── transcript.json 読み込み ──────────────────
+async function loadTranscript() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.segments && data.segments.length > 0) {
+      segments = data.segments.map(s => ({ ...s }));
+      if (window.onSegmentsLoaded) window.onSegmentsLoaded(segments);
+    }
+  } catch {}
+}
+
+// ── Regions 再描画 ─────────────────────────────
+function renderRegions() {
+  if (!wsRegions || !ws) return;
+  wsRegions.clearRegions();
+  regionMap.clear();
+  activeRegionId = null;
+  segments.forEach((seg, idx) => {
+    const hue = (idx * 47) % 360;
+    const region = wsRegions.addRegion({
+      id: String(seg.id),
+      start: seg.start,
+      end: seg.end,
+      content: seg.text.length > 10 ? seg.text.slice(0, 10) + '…' : seg.text,
+      color: `hsla(${hue}, 70%, 60%, 0.35)`,
+      drag: true,
+      resize: true,
+    });
+    regionMap.set(String(seg.id), region);
+  });
+}
+
+// ── 重なりチェック ─────────────────────────────
+function checkOverlaps() {
+  const sorted = [...segments].sort((a, b) => a.start - b.start);
+  let hasOverlap = false;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].end > sorted[i + 1].start) { hasOverlap = true; break; }
+  }
+  document.getElementById('overlap-warning').style.display = hasOverlap ? '' : 'none';
+}
+
+// ── キーボードショートカット ───────────────────
+// Space: 再生/停止　←→: 1フレーム(0.033s)移動
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (!ws) return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    ws.playPause();
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault();
+    ws.skip(-0.033);
+  } else if (e.code === 'ArrowRight') {
+    e.preventDefault();
+    ws.skip(0.033);
+  }
+});
+
+// ── 全体シフト ─────────────────────────────────
+window.shiftAll = function(sec) {
+  segments.forEach(seg => {
+    seg.start = Math.max(0, Math.round((seg.start + sec) * 100) / 100);
+    seg.end   = Math.max(0.1, Math.round((seg.end + sec) * 100) / 100);
+    if (window.updateRowTiming) window.updateRowTiming(seg.id, seg.start, seg.end);
+  });
+  renderRegions();
+};
+
+// ── 選択行シフト ───────────────────────────────
+window.shiftSelected = function(direction) {
+  const amount = parseFloat(document.getElementById('shift-amount').value) || 0.5;
+  const sec = direction * amount;
+  const indices = window.getSelectedIndices ? window.getSelectedIndices() : [];
+  const idCol = window._headers ? window._headers.indexOf('id') : -1;
+  const selectedIds = idCol >= 0
+    ? indices.map(i => parseInt(window._rows[i][idCol])).filter(id => !isNaN(id))
+    : [];
+  segments.filter(s => selectedIds.includes(s.id)).forEach(seg => {
+    seg.start = Math.max(0, Math.round((seg.start + sec) * 100) / 100);
+    seg.end   = Math.max(seg.start + 0.1, Math.round((seg.end + sec) * 100) / 100);
+    if (window.updateRowTiming) window.updateRowTiming(seg.id, seg.start, seg.end);
+  });
+  renderRegions();
+};
+
+// ── 外部公開 ───────────────────────────────────
+window.getSegments = () => segments;
+window.renderRegions = renderRegions;
+
+// ── 起動時自動ロード ───────────────────────────
+await loadTranscript();
+const audioLoaded = await autoLoadAudio();
+if (!audioLoaded) {
+  document.getElementById('waveform-loading').textContent =
+    '音声ファイルが見つかりません。「📂 音声を開く」から選択してください';
+}
 </script>
 </body>
 </html>

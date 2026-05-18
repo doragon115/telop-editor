@@ -16,9 +16,11 @@ input/transcript.json
 input/scene-map.json
 public/audio/
 public/illustrations/
-public/sounds/
+public/sounds/*.mp3
+public/sounds/*.wav
 public/transcript.json
 public/bgm/
 
 # バックアップファイル
 *.bak
+input/transcript.backup-*.json

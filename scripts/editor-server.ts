@@ -51,9 +51,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // POST /api/import → import-csv のロジックを直接実行
+  // POST /api/import → import-csv のロジックを直接実行（保存前に transcript.json をバックアップ）
   if (req.method === 'POST' && url.pathname === '/api/import') {
     try {
+      // バックアップ作成
+      const inputTranscript = path.resolve('input/transcript.json');
+      if (fs.existsSync(inputTranscript)) {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
+        const backupPath = path.resolve(`input/transcript.backup-${stamp}.json`);
+        fs.copyFileSync(inputTranscript, backupPath);
+        console.log(`📦 バックアップ: transcript.backup-${stamp}.json`);
+      }
       const result = runImport();
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true, log: result.log }));
@@ -74,6 +84,54 @@ const server = http.createServer((req, res) => {
       res.end(html);
     } catch {
       res.writeHead(404); res.end('subtitle-editor.html not found');
+    }
+    return;
+  }
+
+  // GET /api/audio-files → input/audio/ の .mp3/.wav 一覧を返す
+  if (req.method === 'GET' && url.pathname === '/api/audio-files') {
+    const audioDir = path.resolve('input/audio');
+    try {
+      const files = fs.readdirSync(audioDir).filter(f => f.endsWith('.mp3') || f.endsWith('.wav'));
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(files));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // GET /audio/:file → input/audio/ から音声ファイルをストリーム配信
+  if (req.method === 'GET' && url.pathname.startsWith('/audio/')) {
+    const fileName = decodeURIComponent(url.pathname.slice('/audio/'.length));
+    const audioBase = path.resolve('input/audio');
+    const filePath = path.resolve(audioBase, fileName);
+    if (!filePath.startsWith(audioBase)) {
+      res.writeHead(403); res.end('Forbidden'); return;
+    }
+    try {
+      const stat = fs.statSync(filePath);
+      const ext = path.extname(fileName).toLowerCase();
+      const mime = ext === '.mp3' ? 'audio/mpeg' : 'audio/wav';
+      res.writeHead(200, { 'Content-Type': mime, 'Content-Length': stat.size });
+      fs.createReadStream(filePath).pipe(res);
+    } catch {
+      res.writeHead(404); res.end('Audio file not found');
+    }
+    return;
+  }
+
+  // GET /api/transcript → input/transcript.json を返す
+  if (req.method === 'GET' && url.pathname === '/api/transcript') {
+    const transcriptPath = path.resolve('input/transcript.json');
+    try {
+      const data = fs.readFileSync(transcriptPath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(data);
+    } catch {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'transcript.json not found' }));
     }
     return;
   }
