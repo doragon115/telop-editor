@@ -194,7 +194,7 @@ const server = http.createServer((req, res) => {
         const transcriptPath = path.resolve('input/transcript.json');
         fs.writeFileSync(transcriptPath, JSON.stringify(json, null, 2), 'utf-8');
         // subtitles.csv 自動生成
-        const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+        const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
         const csvRows: (string | number)[][] = [csvHeaders];
         for (const seg of json.segments) {
           csvRows.push([
@@ -210,6 +210,7 @@ const server = http.createServer((req, res) => {
             seg.style?.bgOpacity ?? 80,
             seg.sound ?? '',
             seg.posY ?? '',
+            seg.illustration ?? '',
           ]);
         }
         const esc = (v: string | number) => {
@@ -379,6 +380,163 @@ const server = http.createServer((req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: String(e) }));
     }
+    return;
+  }
+
+  // POST /api/apply-volume → ffmpegで音量を音源ファイルに焼き込む
+  if (req.method === 'POST' && url.pathname === '/api/apply-volume') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { volume } = JSON.parse(body);
+        const v = parseFloat(volume);
+        if (isNaN(v) || v <= 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'volume が不正' }));
+          return;
+        }
+        const originalPath = path.resolve('public/audio/audio.mp3');
+        const outputPath = path.resolve('public/sounds/audio.mp3');
+        if (!fs.existsSync(originalPath)) {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'オリジナル音源が見つかりません: public/audio/audio.mp3' }));
+          return;
+        }
+        execFile('ffmpeg', [
+          '-y', '-i', originalPath,
+          '-filter:a', `volume=${v}`,
+          '-codec:a', 'libmp3lame', '-q:a', '2',
+          outputPath,
+        ], (err, _stdout, stderr) => {
+          if (err) {
+            console.error('ffmpeg エラー:', stderr);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: stderr }));
+            return;
+          }
+          // transcript.json の volume を 1.0 に統一
+          const inputTranscriptPath = path.resolve('input/transcript.json');
+          const publicTranscriptPath = path.resolve('public/transcript.json');
+          for (const p of [inputTranscriptPath, publicTranscriptPath]) {
+            try {
+              const t = JSON.parse(fs.readFileSync(p, 'utf-8'));
+              t.volume = 1.0;
+              fs.writeFileSync(p, JSON.stringify(t, null, 2), 'utf-8');
+            } catch (_) {}
+          }
+          console.log(`✅ 音量焼き込み完了: ×${v} → public/sounds/audio.mp3`);
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, volume: v }));
+        });
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
+    return;
+  }
+
+  // GET /api/illustrations → public/illustrations/ の画像ファイル一覧を返す
+  if (req.method === 'GET' && url.pathname === '/api/illustrations') {
+    const illustDir = path.resolve('public/illustrations');
+    try {
+      const files = fs.readdirSync(illustDir)
+        .filter(f => /\.(jpg|jpeg|png|gif|webp)$/i.test(f))
+        .sort();
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(files));
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // GET /api/image-timeline → input/image-timeline.json を返す
+  if (req.method === 'GET' && url.pathname === '/api/image-timeline') {
+    const timelinePath = path.resolve('input/image-timeline.json');
+    try {
+      const data = fs.readFileSync(timelinePath, 'utf-8');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(data);
+    } catch {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify([]));
+    }
+    return;
+  }
+
+  // POST /api/image-timeline → input/image-timeline.json & public/image-timeline.json に保存
+  if (req.method === 'POST' && url.pathname === '/api/image-timeline') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = JSON.parse(body);
+        if (!Array.isArray(parsed)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: '配列形式のJSONが必要です' }));
+          return;
+        }
+        const json = JSON.stringify(parsed, null, 2);
+        fs.writeFileSync(path.resolve('input/image-timeline.json'), json, 'utf-8');
+        const publicPath = path.resolve('public/image-timeline.json');
+        if (fs.existsSync(path.resolve('public'))) {
+          fs.writeFileSync(publicPath, json, 'utf-8');
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, count: parsed.length }));
+        console.log(`✅ image-timeline.json 保存: ${parsed.length} エントリ`);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: String(e) }));
+      }
+    });
+    return;
+  }
+
+  // GET /api/insert-files → public/images/inserts/ の画像一覧を返す
+  if (req.method === 'GET' && url.pathname === '/api/insert-files') {
+    const insertsDir = path.resolve('public/images/inserts');
+    let files: string[] = [];
+    try {
+      files = fs.readdirSync(insertsDir)
+        .filter(f => /\.(png|jpg|jpeg|webp)$/i.test(f))
+        .sort();
+    } catch {}
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(files));
+    return;
+  }
+
+  // GET /inserts/:file → public/images/inserts/ から画像を配信
+  if (req.method === 'GET' && url.pathname.startsWith('/inserts/')) {
+    const fileName = decodeURIComponent(url.pathname.slice('/inserts/'.length));
+    const insertsDir = path.resolve('public/images/inserts');
+    const filePath = path.resolve(insertsDir, fileName);
+    if (!filePath.startsWith(insertsDir) || !fs.existsSync(filePath)) {
+      res.writeHead(404); res.end('Not found'); return;
+    }
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeMap: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+    res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'image/png' });
+    fs.createReadStream(filePath).pipe(res);
+    return;
+  }
+
+  // GET /illustrations/:file → public/illustrations/ から画像ファイルを配信
+  if (req.method === 'GET' && url.pathname.startsWith('/illustrations/')) {
+    const fileName = decodeURIComponent(url.pathname.slice('/illustrations/'.length));
+    const illustDir = path.resolve('public/illustrations');
+    const filePath = path.resolve(illustDir, fileName);
+    if (!filePath.startsWith(illustDir) || !fs.existsSync(filePath)) {
+      res.writeHead(404); res.end('Not found'); return;
+    }
+    const ext = path.extname(fileName).toLowerCase();
+    const mimeMap: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' };
+    res.writeHead(200, { 'Content-Type': mimeMap[ext] || 'image/jpeg' });
+    fs.createReadStream(filePath).pipe(res);
     return;
   }
 

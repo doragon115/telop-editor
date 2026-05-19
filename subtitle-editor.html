@@ -222,11 +222,14 @@
     </select>
     <button class="btn-audio" onclick="previewBgm()" title="BGMをプレビュー再生">▶ 試聴</button>
     <button class="btn-audio" onclick="stopBgmPreview()" title="BGMプレビュー停止">■ 停止</button>
-    <span style="margin-left:12px;font-size:12px;opacity:0.85;">🔊 音量:</span>
-    <input type="range" id="voice-volume" min="0.5" max="6" step="0.1" value="3.0"
+    <span style="margin-left:12px;font-size:12px;opacity:0.85;">🔊 声の音量:</span>
+    <input type="range" id="voice-volume" min="0.5" max="8" step="0.1" value="3.0"
       style="width:90px;cursor:pointer;vertical-align:middle;accent-color:#60a5fa;"
       oninput="onVolumeChange(this.value)">
     <span id="voice-volume-label" style="font-size:12px;min-width:30px;text-align:right;">3.0×</span>
+    <button id="volume-apply-btn" onclick="applyVolumeToFile()" class="btn-audio"
+      style="margin-left:6px;background:rgba(96,165,250,0.25);border:1px solid rgba(96,165,250,0.6);"
+      title="この音量で音源ファイルを作り直す">🔧 音量を焼き込む</button>
     <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
   </div>
   <div id="waveform-container">
@@ -270,6 +273,7 @@
             <th style="width:120px">縁取り色</th>
             <th style="width:140px">背景色</th>
             <th style="width:150px">効果音 🎵</th>
+            <th style="width:150px">挿絵 🖼</th>
             <th style="width:80px">縦位置↕</th>
             <th style="width:272px">プレビュー</th>
           </tr>
@@ -386,7 +390,7 @@ function loadCSV(csvText) {
   rows = parsed.slice(1);
 
   // 不足カラムを補完
-  const required = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  const required = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
   required.forEach(col => {
     if (!headers.includes(col)) {
       headers.push(col);
@@ -403,7 +407,7 @@ function loadTranscriptJSON(json) {
     showToast('❌ 有効なテロップJSONではありません（segmentsがありません）');
     return;
   }
-  const cols = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  const cols = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
   headers = cols;
   rows = json.segments.map(seg => [
     String(seg.id ?? ''),
@@ -418,6 +422,7 @@ function loadTranscriptJSON(json) {
     String(seg.style?.bgOpacity ?? 80),
     seg.sound ?? '',
     String(seg.posY ?? ''),
+    seg.illustration ?? '',
   ]);
   renderTable();
   showToast(`✅ ${rows.length} 件のテロップを読み込みました`);
@@ -691,6 +696,31 @@ function renderTable() {
     soundSelect.addEventListener('change', () => { set('sound', soundSelect.value); });
     tdSound.appendChild(soundSelect);
     tr.appendChild(tdSound);
+
+    // ── 挿絵 ──
+    const tdIllust = document.createElement('td');
+    const illustVal = get('illustration') || '';
+    const illustSelect = document.createElement('select');
+    illustSelect.className = 'sound-select';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = '🖼 なし';
+    if (!illustVal) noneOpt.selected = true;
+    illustSelect.appendChild(noneOpt);
+    illustrationFiles.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = 'illustrations/' + file;
+      opt.textContent = '🖼 ' + file.replace(/^illust_\d+_/, '').replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+      if ('illustrations/' + file === illustVal) opt.selected = true;
+      illustSelect.appendChild(opt);
+    });
+    if (illustVal && !illustrationFiles.find(f => 'illustrations/' + f === illustVal)) {
+      const opt = document.createElement('option');
+      opt.value = illustVal; opt.textContent = '🖼 ' + illustVal; opt.selected = true;
+      illustSelect.insertBefore(opt, illustSelect.children[1]);
+    }
+    illustSelect.addEventListener('change', () => { set('illustration', illustSelect.value); });
+    tdIllust.appendChild(illustSelect);
+    tr.appendChild(tdIllust);
 
     // ── 縦位置 (posY) ──
     const tdPosY = document.createElement('td');
@@ -1100,6 +1130,10 @@ let _volumeSaveTimer = null;
 function onVolumeChange(val) {
   const v = parseFloat(val);
   document.getElementById('voice-volume-label').textContent = v.toFixed(1) + '×';
+  // WaveSurfer の再生音量にもリアルタイム反映（max 1.0 にクランプ）
+  if (ws) {
+    ws.setVolume(Math.min(v, 1.0));
+  }
   // デバウンス: 500ms 後に保存
   clearTimeout(_volumeSaveTimer);
   _volumeSaveTimer = setTimeout(() => saveVolumeToTranscript(v), 500);
@@ -1119,6 +1153,39 @@ async function saveVolumeToTranscript(volume) {
     });
     console.log('✅ 音量保存:', volume);
   } catch (e) { console.error('音量保存失敗:', e); }
+}
+
+// 音量を音源ファイルに焼き込む（ffmpeg経由）
+async function applyVolumeToFile() {
+  const btn = document.getElementById('volume-apply-btn');
+  const v = parseFloat(document.getElementById('voice-volume').value);
+  const origText = btn.textContent;
+  btn.textContent = '⏳ 処理中...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/apply-volume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ volume: v }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'エラー');
+    btn.textContent = '✅ 完了！';
+    // WaveSurfer を新しいファイルでリロード
+    if (ws) {
+      const audioUrl = `/sounds/audio.mp3?v=${Date.now()}`;
+      await ws.load(audioUrl);
+      ws.setVolume(1.0);
+    }
+    // スライダーを 1.0 に戻す（焼き込み済みなので）
+    document.getElementById('voice-volume').value = 1.0;
+    document.getElementById('voice-volume-label').textContent = '1.0×';
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+  } catch (e) {
+    btn.textContent = '❌ 失敗';
+    alert('音量焼き込み失敗: ' + e.message);
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+  }
 }
 
 // ── Remotion Studio 起動（保存→更新→オープン） ───
@@ -1205,13 +1272,23 @@ async function openRemotionStudio() {
   setTimeout(reset, 3000);
 }
 
+// 挿絵ファイル一覧
+let illustrationFiles = [];
+async function loadIllustrations() {
+  try {
+    const res = await fetch('/api/illustrations');
+    if (res.ok) illustrationFiles = await res.json();
+  } catch {}
+}
+
 // BGMリストを起動時に読み込む
 loadBgmList();
+loadIllustrations();
 
 // transcript.json ロード時にテーブルを初期化
 window.onSegmentsLoaded = function(segments) {
   if (rows.length > 0) return; // CSV がすでに読み込まれていれば上書きしない
-  const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY'];
+  const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
   headers = csvHeaders;
   rows = segments.map(seg => [
     String(seg.id),
@@ -1226,6 +1303,7 @@ window.onSegmentsLoaded = function(segments) {
     '80',
     seg.sound || '',
     String(seg.posY || 360),
+    seg.illustration || '',
   ]);
   renderTable();
   // サーバーモードの UI も有効化
@@ -1357,15 +1435,28 @@ function loadAudioUrl(url, filename) {
   ws.load(url);
 }
 
-// サーバーから音声ファイル一覧を取得して自動ロード
+// Remotion が採用している正規化済み音源を自動ロード
+// public/sounds/audio.mp3 = Remotion と同一音源（音量・EQ処理済み）
 async function autoLoadAudio() {
   if (location.hostname !== 'localhost') return false;
   try {
-    const res = await fetch('/api/audio-files');
-    const files = await res.json(); // [{ file, dir }]
-    if (files.length > 0) {
-      const { file } = files[0];
-      loadAudioUrl(`/audio/${encodeURIComponent(file)}`, file);
+    // transcript.json の audio フィールドからファイル名を取得
+    const res = await fetch('/api/transcript');
+    if (res.ok) {
+      const t = await res.json();
+      const audioPath = t.audio; // e.g. "sounds/audio.mp3"
+      if (audioPath) {
+        const filename = audioPath.split('/').pop();
+        loadAudioUrl(`/${audioPath}`, filename);
+        return true;
+      }
+    }
+  } catch {}
+  // フォールバック: sounds/audio.mp3 を直接試す
+  try {
+    const probe = await fetch('/sounds/audio.mp3', { method: 'HEAD' });
+    if (probe.ok) {
+      loadAudioUrl('/sounds/audio.mp3', 'audio.mp3');
       return true;
     }
   } catch {}
