@@ -45,8 +45,7 @@ const Character: React.FC<CharacterProps> = ({
           style={{
             position: 'absolute',
             bottom: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
+            left: 40,
             width: 340,
             height: 430,
             opacity,
