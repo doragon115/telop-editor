@@ -22,9 +22,11 @@ export interface SceneMapEntry {
 
 export interface Transcript {
   title: string;
-  audio: string;       // path relative to public/ e.g. "audio/episode.m4a"
+  audio: string;       // path relative to public/ e.g. "sounds/audio.mp3"
   duration: number;    // total seconds
   segments: Segment[];
   bgm?: string;        // path relative to public/ e.g. "sounds/bgm_morning.mp3"
-  volume?: number;     // 音声ボリューム倍率（デフォルト 3.0）
+  volume?: number;     // 声の音量倍率（prepare.ts で正規化+3倍済みなら 1.0）
+  bgmVolume?: number;  // BGM音量（デフォルト 0.07 = 声の約1/14）
+  charAlign?: 'left' | 'center' | 'right'; // 挿絵表示時の顔の横位置（デフォルト left）
 }

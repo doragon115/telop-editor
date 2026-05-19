@@ -21,6 +21,8 @@ interface CharacterProps {
   fps: number;
   /** Sequence の絶対開始フレーム（相対フレームと合算して絶対時刻を算出） */
   segmentStartFrame: number;
+  /** 挿絵表示時の顔の横位置 */
+  charAlign: 'left' | 'center' | 'right';
 }
 
 const Character: React.FC<CharacterProps> = ({
@@ -29,6 +31,7 @@ const Character: React.FC<CharacterProps> = ({
   insertEntries,
   fps,
   segmentStartFrame,
+  charAlign,
 }) => {
   const relFrame = useCurrentFrame();
   const opacity = interpolate(relFrame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
@@ -38,6 +41,14 @@ const Character: React.FC<CharacterProps> = ({
   const isInsertActive = insertEntries.some(e => absSec >= e.start && absSec < e.end);
 
   if (isInsertActive) {
+    // charAlign に応じた横位置スタイル
+    const alignStyle: React.CSSProperties =
+      charAlign === 'right'
+        ? { right: 40 }
+        : charAlign === 'center'
+        ? { left: '50%', transform: 'translateX(-50%)' }
+        : { left: 40 }; // 'left' (デフォルト)
+
     // 挿入画像表示中: 下30%エリアに小さく前面表示
     return (
       <AbsoluteFill style={{ pointerEvents: 'none' }}>
@@ -45,7 +56,7 @@ const Character: React.FC<CharacterProps> = ({
           style={{
             position: 'absolute',
             bottom: 80,
-            left: 40,
+            ...alignStyle,
             width: 340,
             height: 430,
             opacity,
@@ -118,12 +129,14 @@ interface Props {
   segments: Segment[];
   characterImages: string[];
   insertEntries?: InsertEntry[];
+  charAlign?: 'left' | 'center' | 'right';
 }
 
 export const CharacterLayer: React.FC<Props> = ({
   segments,
   characterImages,
   insertEntries = [],
+  charAlign = 'left',
 }) => {
   const { fps } = useVideoConfig();
 
@@ -145,6 +158,7 @@ export const CharacterLayer: React.FC<Props> = ({
               insertEntries={insertEntries}
               fps={fps}
               segmentStartFrame={startFrame}
+              charAlign={charAlign}
             />
           </Sequence>
         );

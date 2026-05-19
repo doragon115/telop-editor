@@ -162,7 +162,7 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
       {/* image-timeline.json からの挿入画像（上70%全面） */}
       <InsertLayer entries={insertEntries} />
       {/* キャラ: 挿入画像あり→下30%に小顔、なし→通常大表示 */}
-      <CharacterLayer segments={transcript.segments} characterImages={characterImages} insertEntries={insertEntries} />
+      <CharacterLayer segments={transcript.segments} characterImages={characterImages} insertEntries={insertEntries} charAlign={transcript.charAlign ?? 'left'} />
       <IllustrationLayer sceneMap={sceneMap} segments={transcript.segments} />
 
       <EmphasisLayer segments={transcript.segments} />

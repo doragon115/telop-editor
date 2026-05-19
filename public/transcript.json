@@ -11,7 +11,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_intro.mp3"
+      "sound": "sounds/se_intro.mp3",
+      "illustration": "illustrations/illust_05_money_flow.jpg"
     },
     {
       "id": 1,
@@ -21,7 +22,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_achievement.mp3"
+      "sound": "sounds/se_achievement.mp3",
+      "illustration": "illustrations/illust_05_money_flow.jpg"
     },
     {
       "id": 2,
@@ -31,7 +33,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_impact.mp3"
+      "sound": "sounds/se_impact.mp3",
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 3,
@@ -41,7 +44,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_treasure.mp3"
+      "sound": "sounds/se_treasure.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 4,
@@ -51,7 +55,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 5,
@@ -61,7 +66,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_sigh.mp3"
+      "sound": "sounds/se_sigh.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 6,
@@ -71,7 +77,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 7,
@@ -81,7 +88,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_impact.mp3"
+      "sound": "sounds/se_impact.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 8,
@@ -91,7 +99,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": "sounds/se_pikon.mp3"
+      "sound": "sounds/se_pikon.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 9,
@@ -101,7 +110,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_drum.mp3"
+      "sound": "sounds/se_drum.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 10,
@@ -111,7 +121,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_fanfare.mp3"
+      "sound": "sounds/se_fanfare.mp3",
+      "illustration": "illustrations/illust_02_connection.jpg"
     },
     {
       "id": 11,
@@ -121,7 +132,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_pikon.mp3"
+      "sound": "sounds/se_pikon.mp3",
+      "illustration": null
     },
     {
       "id": 12,
@@ -131,7 +143,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_impact.mp3"
+      "sound": "sounds/se_impact.mp3",
+      "illustration": "illustrations/illust_06_thinking.jpg"
     },
     {
       "id": 13,
@@ -141,7 +154,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_06_thinking.jpg"
     },
     {
       "id": 14,
@@ -151,7 +165,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_06_thinking.jpg"
     },
     {
       "id": 15,
@@ -161,7 +176,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_01_tokyo_university.jpg"
     },
     {
       "id": 16,
@@ -171,7 +187,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_fanfare.mp3"
+      "sound": "sounds/se_fanfare.mp3",
+      "illustration": "illustrations/illust_01_tokyo_university.jpg"
     },
     {
       "id": 17,
@@ -181,7 +198,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_01_tokyo_university.jpg"
     },
     {
       "id": 18,
@@ -191,7 +209,8 @@
       "scene": "surprised",
       "character": 0,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_01_tokyo_university.jpg"
     },
     {
       "id": 19,
@@ -201,7 +220,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_notice.mp3"
+      "sound": "sounds/se_notice.mp3",
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 20,
@@ -211,7 +231,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 21,
@@ -221,7 +242,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 22,
@@ -231,7 +253,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 23,
@@ -241,7 +264,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 24,
@@ -251,7 +275,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": "sounds/se_impact.mp3"
+      "sound": "sounds/se_impact.mp3",
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 25,
@@ -261,7 +286,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_04_brain_active.jpg"
     },
     {
       "id": 26,
@@ -271,7 +297,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_07_aging.jpg"
     },
     {
       "id": 27,
@@ -281,7 +308,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": "sounds/se_drum.mp3"
+      "sound": "sounds/se_drum.mp3",
+      "illustration": "illustrations/illust_07_aging.jpg"
     },
     {
       "id": 28,
@@ -291,7 +319,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_07_aging.jpg"
     },
     {
       "id": 29,
@@ -301,17 +330,19 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_07_aging.jpg"
     },
     {
       "id": 30,
       "start": 84.6,
       "end": 87.18,
-      "text": "次にさっき解答したフォルダに移動します。",
+      "text": "次にさっき解凍したフォルダに移動します。",
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_me_thinking.jpg"
     },
     {
       "id": 31,
@@ -321,7 +352,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_me_thinking.jpg"
     },
     {
       "id": 32,
@@ -331,7 +363,8 @@
       "scene": "thinking",
       "character": 2,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_me_thinking.jpg"
     },
     {
       "id": 33,
@@ -341,7 +374,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_me_thinking.jpg"
     },
     {
       "id": 34,
@@ -351,7 +385,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_08_rejuvenation.jpg"
     },
     {
       "id": 35,
@@ -361,7 +396,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": "sounds/se_sugoi.mp3"
+      "sound": "sounds/se_sugoi.mp3",
+      "illustration": "illustrations/illust_08_rejuvenation.jpg"
     },
     {
       "id": 36,
@@ -371,7 +407,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_08_rejuvenation.jpg"
     },
     {
       "id": 37,
@@ -381,7 +418,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_03_success.jpg"
     },
     {
       "id": 38,
@@ -391,7 +429,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_achievement.mp3"
+      "sound": "sounds/se_achievement.mp3",
+      "illustration": "illustrations/illust_03_success.jpg"
     },
     {
       "id": 39,
@@ -401,7 +440,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": "sounds/se_treasure.mp3"
+      "sound": "sounds/se_treasure.mp3",
+      "illustration": "illustrations/illust_05_money_flow.jpg"
     },
     {
       "id": 40,
@@ -411,7 +451,8 @@
       "scene": "smile",
       "character": 3,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_03_success.jpg"
     },
     {
       "id": 41,
@@ -421,7 +462,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": null
+      "sound": null,
+      "illustration": "illustrations/illust_03_success.jpg"
     },
     {
       "id": 42,
@@ -431,7 +473,8 @@
       "scene": "pointing",
       "character": 1,
       "emphasis": null,
-      "sound": "sounds/se_fanfare.mp3"
+      "sound": "sounds/se_fanfare.mp3",
+      "illustration": "illustrations/illust_09_last.jpg"
     }
   ],
   "bgm": "sounds/bgm_morning.mp3",

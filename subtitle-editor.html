@@ -230,6 +230,14 @@
     <button id="volume-apply-btn" onclick="applyVolumeToFile()" class="btn-audio"
       style="margin-left:6px;background:rgba(96,165,250,0.25);border:1px solid rgba(96,165,250,0.6);"
       title="この音量で音源ファイルを作り直す">🔧 音量を焼き込む</button>
+    <span style="font-size:12px;color:rgba(255,255,255,0.8);margin-left:10px;">👤 顔の位置</span>
+    <select id="char-align-select" class="btn-audio"
+      style="padding:4px 8px;font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;"
+      onchange="onCharAlignChange(this.value)" title="挿絵表示中の顔の横位置">
+      <option value="left">← 左</option>
+      <option value="center">｜ 中央</option>
+      <option value="right">→ 右</option>
+    </select>
     <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
   </div>
   <div id="waveform-container">
@@ -272,8 +280,7 @@
             <th style="width:110px">文字色</th>
             <th style="width:120px">縁取り色</th>
             <th style="width:140px">背景色</th>
-            <th style="width:150px">効果音 🎵</th>
-            <th style="width:150px">挿絵 🖼</th>
+            <th style="width:170px">効果音🎵 / 挿絵🖼</th>
             <th style="width:80px">縦位置↕</th>
             <th style="width:272px">プレビュー</th>
           </tr>
@@ -659,46 +666,50 @@ function renderTable() {
     tdBg.appendChild(bgWrap);
     tr.appendChild(tdBg);
 
-    // ── 効果音 ──
-    const tdSound = document.createElement('td');
+    // ── 効果音 + 挿絵（1セルに上下2行で統合） ──
+    const tdSoundIllust = document.createElement('td');
+    tdSoundIllust.style.cssText = 'padding:4px 6px;vertical-align:top;';
+
+    // 上段: 効果音
+    const soundLabel = document.createElement('div');
+    soundLabel.style.cssText = 'font-size:10px;color:#888;margin-bottom:2px;';
+    soundLabel.textContent = '🎵 効果音';
     const soundVal = get('sound') || '';
     const soundSelect = document.createElement('select');
     soundSelect.className = 'sound-select';
     const SOUNDS = [
       { value: '', label: '🔇 なし' },
-      { value: 'sounds/se_intro.mp3',       label: '🎬 se_intro（オープニング）' },
-      { value: 'sounds/se_fanfare.mp3',      label: '🎺 se_fanfare（ファンファーレ）' },
-      { value: 'sounds/se_achievement.mp3',  label: '🏆 se_achievement（達成）' },
-      { value: 'sounds/se_impact.mp3',       label: '💥 se_impact（インパクト）' },
-      { value: 'sounds/se_treasure.mp3',     label: '💰 se_treasure（お宝・稼ぐ）' },
-      { value: 'sounds/se_coin.wav',          label: '🪙 se_coin（チャリンお金）' },
-      { value: 'sounds/se_money.mp3',        label: '😅 se_money（チーン残念）' },
-      { value: 'sounds/se_drum.mp3',         label: '🥁 se_drum（ドラム）' },
-      { value: 'sounds/se_applause.mp3',     label: '👏 se_applause（拍手）' },
-      { value: 'sounds/se_sugoi.mp3',        label: '✨ se_sugoi（すごい）' },
-      { value: 'sounds/se_pikon.mp3',        label: '🔔 se_pikon（ピコン）' },
-      { value: 'sounds/se_notice.mp3',       label: '🤔 se_notice（あれ？）' },
-      { value: 'sounds/se_sigh.mp3',         label: '😮‍💨 se_sigh（ため息）' },
+      { value: 'sounds/se_intro.mp3',       label: '🎬 intro（OP）' },
+      { value: 'sounds/se_fanfare.mp3',      label: '🎺 fanfare' },
+      { value: 'sounds/se_achievement.mp3',  label: '🏆 achievement' },
+      { value: 'sounds/se_impact.mp3',       label: '💥 impact' },
+      { value: 'sounds/se_treasure.mp3',     label: '💰 treasure' },
+      { value: 'sounds/se_coin.wav',          label: '🪙 coin' },
+      { value: 'sounds/se_money.mp3',        label: '😅 money' },
+      { value: 'sounds/se_drum.mp3',         label: '🥁 drum' },
+      { value: 'sounds/se_applause.mp3',     label: '👏 applause' },
+      { value: 'sounds/se_sugoi.mp3',        label: '✨ sugoi' },
+      { value: 'sounds/se_pikon.mp3',        label: '🔔 pikon' },
+      { value: 'sounds/se_notice.mp3',       label: '🤔 notice' },
+      { value: 'sounds/se_sigh.mp3',         label: '😮‍💨 sigh' },
     ];
     SOUNDS.forEach(({ value, label }) => {
       const opt = document.createElement('option');
-      opt.value = value;
-      opt.textContent = label;
+      opt.value = value; opt.textContent = label;
       if (value === soundVal) opt.selected = true;
       soundSelect.appendChild(opt);
     });
-    // CSVにある値が上記リストにない場合も保持
     if (soundVal && !SOUNDS.find(s => s.value === soundVal)) {
       const opt = document.createElement('option');
       opt.value = soundVal; opt.textContent = '🔊 ' + soundVal; opt.selected = true;
       soundSelect.insertBefore(opt, soundSelect.children[1]);
     }
     soundSelect.addEventListener('change', () => { set('sound', soundSelect.value); });
-    tdSound.appendChild(soundSelect);
-    tr.appendChild(tdSound);
 
-    // ── 挿絵 ──
-    const tdIllust = document.createElement('td');
+    // 下段: 挿絵
+    const illustLabel = document.createElement('div');
+    illustLabel.style.cssText = 'font-size:10px;color:#888;margin-top:5px;margin-bottom:2px;';
+    illustLabel.textContent = '🖼 挿絵';
     const illustVal = get('illustration') || '';
     const illustSelect = document.createElement('select');
     illustSelect.className = 'sound-select';
@@ -719,8 +730,9 @@ function renderTable() {
       illustSelect.insertBefore(opt, illustSelect.children[1]);
     }
     illustSelect.addEventListener('change', () => { set('illustration', illustSelect.value); });
-    tdIllust.appendChild(illustSelect);
-    tr.appendChild(tdIllust);
+
+    tdSoundIllust.append(soundLabel, soundSelect, illustLabel, illustSelect);
+    tr.appendChild(tdSoundIllust);
 
     // ── 縦位置 (posY) ──
     const tdPosY = document.createElement('td');
@@ -1094,6 +1106,23 @@ function onBgmChange(val) {
   stopBgmPreview();
   // transcript.json の bgm フィールドを更新して保存
   saveBgmToTranscript(val);
+}
+
+// 顔の横位置を transcript.json に保存
+async function onCharAlignChange(val) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.charAlign = val;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    showToast('✅ 顔の位置を「' + (val === 'left' ? '左' : val === 'right' ? '右' : '中央') + '」に変更しました');
+  } catch (e) { console.error('顔の位置保存失敗:', e); }
 }
 
 async function saveBgmToTranscript(bgmPath) {
@@ -1500,6 +1529,11 @@ async function loadTranscript() {
       const slider = document.getElementById('voice-volume');
       slider.value = data.volume;
       document.getElementById('voice-volume-label').textContent = parseFloat(data.volume).toFixed(1) + '×';
+    }
+    // 顔の位置を復元
+    if (data.charAlign) {
+      const sel = document.getElementById('char-align-select');
+      if (sel) sel.value = data.charAlign;
     }
   } catch {}
 }
