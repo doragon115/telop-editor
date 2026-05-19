@@ -59,11 +59,12 @@ const Character: React.FC<CharacterProps> = ({
             <Img
               src={src}
               style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: 'top center',
-                display: 'block',
+                // 横120%に拡大して左右の白い背景をカット、縦は上部(顔)に寄せる
+                position: 'absolute',
+                width: '120%',
+                height: 'auto',
+                left: '-10%',   // (120%-100%)/2 = センタリング
+                top: '-2%',
               }}
             />
           ) : (
