@@ -9,18 +9,79 @@ import {
   useVideoConfig,
 } from 'remotion';
 import type { Segment } from '../types/transcript';
+import type { InsertEntry } from './InsertLayer';
 
 const FALLBACK_COLORS = ['#4A90D9', '#E57373', '#81C784', '#FFB74D'];
 
 interface CharacterProps {
   src: string | null;
   characterIndex: number;
+  /** 挿入画像エントリー（アクティブかどうかの判定に使用） */
+  insertEntries: InsertEntry[];
+  fps: number;
+  /** Sequence の絶対開始フレーム（相対フレームと合算して絶対時刻を算出） */
+  segmentStartFrame: number;
 }
 
-const Character: React.FC<CharacterProps> = ({ src, characterIndex }) => {
-  const frame = useCurrentFrame();
-  const opacity = interpolate(frame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
+const Character: React.FC<CharacterProps> = ({
+  src,
+  characterIndex,
+  insertEntries,
+  fps,
+  segmentStartFrame,
+}) => {
+  const relFrame = useCurrentFrame();
+  const opacity = interpolate(relFrame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
 
+  // 絶対時刻（秒）で挿入画像が表示中かチェック
+  const absSec = (segmentStartFrame + relFrame) / fps;
+  const isInsertActive = insertEntries.some(e => absSec >= e.start && absSec < e.end);
+
+  if (isInsertActive) {
+    // 挿入画像表示中: 下30%エリアに小さく前面表示
+    return (
+      <AbsoluteFill style={{ pointerEvents: 'none' }}>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 80,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 340,
+            height: 430,
+            opacity,
+            overflow: 'hidden',
+            borderRadius: 18,
+            boxShadow: '0 16px 48px rgba(0,0,0,0.75)',
+            border: '2px solid rgba(255,255,255,0.12)',
+          }}
+        >
+          {src ? (
+            <Img
+              src={src}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'top center',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                background: FALLBACK_COLORS[characterIndex % FALLBACK_COLORS.length],
+              }}
+            />
+          )}
+        </div>
+      </AbsoluteFill>
+    );
+  }
+
+  // 通常モード: 大きくセンター下部に表示
   if (!src) {
     return (
       <AbsoluteFill style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -56,9 +117,14 @@ const Character: React.FC<CharacterProps> = ({ src, characterIndex }) => {
 interface Props {
   segments: Segment[];
   characterImages: string[];
+  insertEntries?: InsertEntry[];
 }
 
-export const CharacterLayer: React.FC<Props> = ({ segments, characterImages }) => {
+export const CharacterLayer: React.FC<Props> = ({
+  segments,
+  characterImages,
+  insertEntries = [],
+}) => {
   const { fps } = useVideoConfig();
 
   return (
@@ -73,7 +139,13 @@ export const CharacterLayer: React.FC<Props> = ({ segments, characterImages }) =
         const imgSrc = rawPath ? staticFile(rawPath) : null;
         return (
           <Sequence key={seg.id} from={startFrame} durationInFrames={duration}>
-            <Character src={imgSrc} characterIndex={seg.character} />
+            <Character
+              src={imgSrc}
+              characterIndex={seg.character}
+              insertEntries={insertEntries}
+              fps={fps}
+              segmentStartFrame={startFrame}
+            />
           </Sequence>
         );
       })}

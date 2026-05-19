@@ -40,41 +40,33 @@ const InsertImage: React.FC<InsertImageProps> = ({ src, durationInFrames }) => {
   );
   const opacity = Math.min(fadeIn, fadeOut);
 
-  // 長尺ズームイン（3秒超の場合、1.0→1.06 をゆっくり）
+  // 長尺ズームイン（3秒超の場合、1.0→1.04 をゆっくり）
   const scale =
     durationInFrames > ZOOM_THRESHOLD_FRAMES
-      ? interpolate(frame, [0, durationInFrames], [1.0, 1.06], {
+      ? interpolate(frame, [0, durationInFrames], [1.0, 1.04], {
           extrapolateLeft: 'clamp',
           extrapolateRight: 'clamp',
         })
       : 1.0;
 
   return (
-    <AbsoluteFill
-      style={{
-        // 上部エリアに配置。字幕（下部360px）・キャラ顔には干渉しない高さで収める
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        paddingTop: 64,
-        pointerEvents: 'none',
-      }}
-    >
+    <AbsoluteFill style={{ pointerEvents: 'none' }}>
+      {/* 上70%を全面使って挿入画像を表示 */}
       <div
         style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '70%',
           opacity,
           transform: `scale(${scale})`,
           transformOrigin: 'top center',
-          // 最大幅 78%・最大高さ 45% (1920px基準で864px)
-          width: '78%',
-          maxHeight: '45%',
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'center',
           overflow: 'hidden',
-          borderRadius: 22,
-          // 画像が浮き上がって見えるよう背景＋影を付ける
-          background: 'rgba(0,0,0,0.18)',
-          boxShadow: '0 16px 48px rgba(0,0,0,0.55)',
+          background: '#0d0d1a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <Img
@@ -83,7 +75,6 @@ const InsertImage: React.FC<InsertImageProps> = ({ src, durationInFrames }) => {
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            borderRadius: 22,
             display: 'block',
           }}
         />

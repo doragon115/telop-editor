@@ -158,10 +158,11 @@ export const ShortVideo: React.FC<ShortVideoProps> = ({
         <Audio src={staticFile(transcript.bgm || 'sounds/bgm_morning.mp3')} volume={bgmVolume} />
       )}
 
-      {/* 描画順: キャラ → 挿入画像 → 挿絵 → 強調テロップ → 字幕 */}
-      <CharacterLayer segments={transcript.segments} characterImages={characterImages} />
-      {/* image-timeline.json からの挿入画像（チュートリアル画像等） */}
+      {/* 描画順: 挿入画像(背面) → キャラ(前面・挿絵時は小さく) → IllustrationLayer → テロップ → 字幕 */}
+      {/* image-timeline.json からの挿入画像（上70%全面） */}
       <InsertLayer entries={insertEntries} />
+      {/* キャラ: 挿入画像あり→下30%に小顔、なし→通常大表示 */}
+      <CharacterLayer segments={transcript.segments} characterImages={characterImages} insertEntries={insertEntries} />
       <IllustrationLayer sceneMap={sceneMap} segments={transcript.segments} />
 
       <EmphasisLayer segments={transcript.segments} />
