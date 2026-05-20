@@ -1,0 +1,1880 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テロップエディター</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif; background: #f0f2f5; color: #222; }
+  header { background: #1a56db; color: white; padding: 20px 32px; }
+  header h1 { font-size: 22px; }
+  header p { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+
+  .toolbar { background: white; padding: 14px 32px; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; }
+  .btn { padding: 9px 20px; border-radius: 8px; border: none; font-size: 14px; cursor: pointer; font-weight: bold; transition: opacity 0.15s; }
+  .btn:hover { opacity: 0.85; }
+  .btn-primary { background: #1a56db; color: white; }
+  .btn-success { background: #16a34a; color: white; }
+  .btn-secondary { background: #e5e7eb; color: #374151; }
+  .btn-add { background: #dbeafe; color: #1a56db; border: 2px dashed #93c5fd; }
+  .btn-update { background: #7c3aed; color: white; }
+  .hint { font-size: 12px; color: #888; }
+
+  .container { padding: 24px 32px; }
+  .table-scroll { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 1000px; table-layout: fixed; }
+  thead tr { background: #1a56db; color: white; }
+  th { padding: 11px 10px; text-align: left; font-size: 12px; white-space: nowrap; }
+  td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8f9ff; }
+
+  /* 削除ボタン列 */
+  .del-cell { width: 36px; text-align: center; padding: 4px; }
+  .btn-del { width: 26px; height: 26px; border-radius: 50%; border: none; background: #fee2e2; color: #dc2626; font-size: 15px; line-height: 1; cursor: pointer; font-weight: bold; }
+  .btn-del:hover { background: #fca5a5; }
+
+  /* 時間入力 */
+  .time-wrap { display: flex; flex-direction: column; gap: 3px; }
+  .time-lbl { font-size: 9px; color: #aaa; letter-spacing: 0.5px; }
+  .time-input { width: 72px; border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; font-size: 12px; text-align: center; }
+  .time-input:focus { outline: none; border-color: #1a56db; }
+  .time-input.error { border-color: #dc2626; background: #fff5f5; }
+
+  /* テキストエリア */
+  textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 10px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 44px; line-height: 1.4; }
+  textarea:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.2); }
+
+  /* サイズ入力 */
+  .size-input { width: 66px; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 14px; text-align: center; }
+  .size-input:focus { outline: none; border-color: #1a56db; }
+
+  /* カラー系 */
+  .color-wrap { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  input[type="color"] { width: 34px; height: 34px; border: none; border-radius: 6px; cursor: pointer; padding: 2px; background: #f3f4f6; }
+  .color-hex { font-size: 11px; color: #555; width: 56px; }
+  .toggle-label { font-size: 11px; color: #555; display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
+
+  /* 背景色 */
+  .bg-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .opacity-row { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; }
+  input[type="range"] { width: 66px; accent-color: #1a56db; cursor: pointer; }
+
+  /* ========================================================
+     プレビュー — Remotion と完全一致
+     ・940px幅・実際のfont-sizeでレンダリング
+     ・transform: scale(252/940) で縮小表示
+     ・横: .preview-box の overflow:hidden + 固定幅でclip
+     ・縦: margin-bottom 負値で余分な高さを圧縮
+     ======================================================== */
+  .preview-cell { width: 272px; max-width: 272px; }
+  .preview-box {
+    width: 252px;          /* 940 × (252/940) = 252px ← ここで横をclip */
+    overflow: hidden;      /* 940px の内枠をここで252pxに切り取る */
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+    border-radius: 10px;
+    padding: 10px 0;       /* 左右 0: scaleで横幅ぴったりのため */
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+  }
+  .preview-scale-inner {
+    width: 940px;
+    transform: scale(0.2681);  /* 252/940 */
+    transform-origin: top left;
+    /* margin-bottom は JS で -domHeight*(1-0.2681) にセット */
+  }
+  .preview-text {
+    display: block;
+    font-family: "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+    font-weight: 900;
+    font-size: 68px;       /* Remotion と同じ */
+    line-height: 1.18;     /* Remotion と同じ */
+    white-space: pre-line; /* Remotion と同じ */
+    word-break: keep-all;       /* Remotion と同じ */
+    overflow-wrap: break-word;  /* Remotion と同じ — これがないと折り返されずはみ出す */
+    text-align: center;
+    paint-order: stroke fill;
+    width: 940px;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* 追加ボタン行 */
+  .add-row-area { padding: 12px 16px; }
+
+  /* ドロップゾーン */
+  #drop-zone { border: 3px dashed #1a56db; border-radius: 16px; padding: 60px 40px; text-align: center; color: #1a56db; font-size: 18px; cursor: pointer; background: white; transition: background 0.2s; }
+  #drop-zone:hover { background: #eff6ff; }
+  #drop-zone .sub { margin-top: 12px; font-size: 14px; color: #888; }
+
+  /* 縦位置 */
+  .posy-input { width: 66px; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 13px; text-align: center; }
+  .posy-input:focus { outline: none; border-color: #1a56db; }
+  .posy-wrap { display: flex; flex-direction: column; gap: 3px; align-items: center; }
+  .posy-lbl { font-size: 9px; color: #aaa; }
+
+  /* 効果音ドロップダウン */
+  .sound-select { width: 100%; border: 1px solid #d1d5db; border-radius: 6px; padding: 5px 8px; font-size: 12px; background: white; cursor: pointer; }
+  .sound-select:focus { outline: none; border-color: #1a56db; }
+  .sound-select option[value=""] { color: #999; }
+  .sound-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px; background: #dbeafe; color: #1a56db; margin-top: 3px; }
+
+  /* エラートースト */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #dc2626; color: white; padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: bold; display: none; z-index: 999; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+
+  /* 波形セクション */
+  .waveform-section { background: white; margin: 0 32px 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+  .waveform-header { background: #1a56db; color: white; padding: 10px 20px; font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .waveform-header .btn-audio { background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.4); padding: 5px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+  .waveform-header .btn-audio:hover { background: rgba(255,255,255,0.3); }
+  .waveform-header .shortcut-hint { font-size: 11px; opacity: 0.7; margin-left: auto; }
+  #waveform-container { padding: 12px 16px 4px; min-height: 96px; position: relative; background: #f8faff; }
+  #waveform-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); color: #888; font-size: 13px; text-align: center; width: 100%; }
+  #waveform { overflow-x: auto; }
+  .overlap-warning { background: #fef2f2; color: #dc2626; font-size: 12px; padding: 6px 16px; display: none; }
+  .shift-controls { padding: 8px 16px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border-top: 1px solid #f0f0f0; }
+  .shift-label { font-size: 12px; color: #666; white-space: nowrap; }
+  .btn-shift { padding: 5px 12px; border-radius: 6px; border: 1px solid #d1d5db; background: #f9fafb; font-size: 12px; cursor: pointer; font-weight: bold; }
+  .btn-shift:hover { background: #e5e7eb; }
+  .btn-shift.primary { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  .shift-amount { width: 60px; border: 1px solid #d1d5db; border-radius: 5px; padding: 4px 6px; font-size: 12px; text-align: center; }
+  #audio-filename { font-size: 12px; opacity: 0.8; }
+  /* チェックボックス列 */
+  .check-cell { width: 36px; text-align: center; padding: 4px; }
+
+  /* クリアダイアログ */
+  .clear-check-item { display: flex; align-items: flex-start; gap: 10px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+  .clear-check-item:last-child { border-bottom: none; }
+  .clear-check-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; cursor: pointer; accent-color: #dc2626; flex-shrink: 0; }
+  .clear-check-item label { cursor: pointer; }
+  .clear-check-item .item-title { font-size: 14px; font-weight: bold; color: #111827; }
+  .clear-check-item .item-desc { font-size: 12px; color: #6b7280; margin-top: 2px; }
+  .clear-exec-btn { background: #dc2626; color: white; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: bold; cursor: pointer; }
+  .clear-exec-btn:hover { background: #b91c1c; }
+
+  /* ブランド設定モーダル */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.hidden { display: none; }
+  .modal-box { background: white; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.25); width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { background: #1a56db; color: white; padding: 18px 24px; border-radius: 16px 16px 0 0; display: flex; align-items: center; justify-content: space-between; }
+  .modal-header h2 { margin: 0; font-size: 17px; }
+  .modal-close { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 8px; width: 32px; height: 32px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .modal-close:hover { background: rgba(255,255,255,0.35); }
+  .modal-body { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .modal-field { display: flex; flex-direction: column; gap: 6px; }
+  .modal-field label { font-size: 13px; font-weight: bold; color: #374151; }
+  .modal-field input[type="text"] { border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 12px; font-size: 14px; font-family: inherit; }
+  .modal-field input[type="text"]:focus { outline: none; border-color: #1a56db; box-shadow: 0 0 0 2px rgba(26,86,219,0.2); }
+  .modal-field .field-hint { font-size: 11px; color: #9ca3af; }
+  .modal-color-row { display: flex; align-items: center; gap: 10px; }
+  .modal-color-row input[type="color"] { width: 40px; height: 36px; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; padding: 2px; }
+  .modal-color-row input[type="text"] { flex: 1; }
+  .modal-toggle-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+  .modal-toggle-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #1a56db; }
+  .modal-footer { padding: 16px 24px 20px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid #f0f0f0; }
+  .modal-save-btn { background: #1a56db; color: white; border: none; border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: bold; cursor: pointer; }
+  .modal-save-btn:hover { background: #1447c0; }
+  .modal-cancel-btn { background: #e5e7eb; color: #374151; border: none; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; }
+  .modal-section-title { font-size: 12px; font-weight: bold; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -8px; }
+</style>
+</head>
+<body>
+
+<header style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <h1>🎬 テロップエディター</h1>
+    <p>テロップの文字・時間・サイズ・色・背景を自由に編集できます</p>
+    <nav style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <a href="/image-splitter" style="color:rgba(255,255,255,0.9);font-size:13px;text-decoration:none;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);">🖼️ 画像分割ツール</a>
+      <button onclick="openBrandModal()" style="color:rgba(255,255,255,0.9);font-size:13px;background:rgba(255,255,255,0.15);padding:5px 14px;border-radius:6px;border:1px solid rgba(255,255,255,0.3);cursor:pointer;">⚙️ ブランド設定</button>
+      <button onclick="openClearModal()" style="color:#fca5a5;font-size:13px;background:rgba(220,38,38,0.2);padding:5px 14px;border-radius:6px;border:1px solid rgba(220,38,38,0.4);cursor:pointer;">🗑️ 新規動画の準備</button>
+      <a href="https://github.com/doragon115/telop-editor" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.75);font-size:12px;text-decoration:none;display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.2);">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+  <button id="remotion-btn"
+    onclick="openRemotionStudio()"
+    style="background:linear-gradient(135deg,#f59e0b,#f97316);color:white;border:none;border-radius:14px;padding:16px 28px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.25);display:flex;flex-direction:column;align-items:center;gap:4px;min-width:160px;transition:transform 0.1s,box-shadow 0.1s;"
+    onmouseover="this.style.transform='scale(1.04)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'"
+    onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.25)'">
+    <span style="font-size:28px;line-height:1;">🎥</span>
+    <span>Remotion を開く</span>
+    <span id="remotion-btn-sub" style="font-size:11px;opacity:0.85;font-weight:normal;">プレビュー・書き出し</span>
+  </button>
+</header>
+
+<!-- 初心者向けガイド -->
+<div id="setup-guide" style="background:#fffbeb;border-bottom:2px solid #fde68a;padding:14px 32px;font-size:13px;line-height:1.8;">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+    <strong style="font-size:14px;">🚀 はじめての方へ：2ステップで準備完了</strong>
+    <button onclick="document.getElementById('setup-guide').style.display='none'" style="margin-left:auto;border:none;background:transparent;font-size:18px;cursor:pointer;color:#999" title="閉じる">✕</button>
+  </div>
+  <div style="display:flex;gap:32px;flex-wrap:wrap;">
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#f59e0b;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">1</span>
+      <div>
+        <strong>音声ファイルを入れる</strong><br>
+        <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">input/</code> フォルダに <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.mp3</code> または <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.wav</code> を入れる
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#f59e0b;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">2</span>
+      <div>
+        <strong>テロップデータを入れる</strong><br>
+        <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">input/</code> フォルダに <code style="background:#fef3c7;padding:2px 6px;border-radius:4px;">.json</code> ファイルを入れる<br>
+        <span style="font-size:11px;color:#92400e;">または下の「📄 JSONを読み込む」ボタンで直接選択</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:flex-start;gap:8px;">
+      <span style="background:#10b981;color:white;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;flex-shrink:0">✓</span>
+      <div>
+        <strong>ページを再読み込み（Cmd+R）</strong><br>
+        音声と波形・テロップが自動で読み込まれます
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">📂 CSVを開く</button>
+  <input type="file" id="file-input" accept=".csv" style="display:none">
+  <label class="btn btn-secondary" for="json-file-input" style="cursor:pointer;display:inline-flex;align-items:center;">📄 JSONを読み込む</label>
+  <input type="file" id="json-file-input" accept=".json" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
+  <button class="btn btn-success" onclick="saveCSV()">💾 CSVを保存</button>
+  <button class="btn btn-update" id="btn-update" onclick="saveAndImport()" style="display:none">⚡️ 保存して更新 <span style="font-size:11px;opacity:0.75;">⌘↵</span></button>
+  <button class="btn btn-secondary" onclick="resetStyles()">🔄 スタイルをリセット</button>
+  <span id="server-badge" style="display:none; font-size:12px; background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:20px; font-weight:bold;">⚡️ サーバーモード（自動保存）</span>
+  <span class="hint">編集が終わったら「⚡️ 保存して更新」→ Remotion で render</span>
+</div>
+
+<!-- 波形セクション -->
+<div class="waveform-section" id="waveform-section">
+  <div class="waveform-header">
+    🎵 波形エディター
+    <span id="audio-filename">音声ファイルを読み込んでください</span>
+    <label class="btn-audio" for="audio-file-input" style="cursor:pointer">📂 音声を開く</label>
+    <input type="file" id="audio-file-input" accept=".mp3,.wav" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden">
+    <span style="margin-left:8px;font-size:12px;opacity:0.85;">🎼 BGM:</span>
+    <select id="bgm-select" class="btn-audio" style="padding:4px 8px;font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;max-width:200px;" onchange="onBgmChange(this.value)">
+      <option value="">（なし）</option>
+    </select>
+    <button class="btn-audio" onclick="previewBgm()" title="BGMをプレビュー再生">▶ 試聴</button>
+    <button class="btn-audio" onclick="stopBgmPreview()" title="BGMプレビュー停止">■ 停止</button>
+    <span style="margin-left:12px;font-size:12px;opacity:0.85;">🔊 声の音量:</span>
+    <input type="range" id="voice-volume" min="0.5" max="8" step="0.1" value="3.0"
+      style="width:90px;cursor:pointer;vertical-align:middle;accent-color:#60a5fa;"
+      oninput="onVolumeChange(this.value)">
+    <span id="voice-volume-label" style="font-size:12px;min-width:30px;text-align:right;">3.0×</span>
+    <button id="volume-apply-btn" onclick="applyVolumeToFile()" class="btn-audio"
+      style="margin-left:6px;background:rgba(96,165,250,0.25);border:1px solid rgba(96,165,250,0.6);"
+      title="この音量で音源ファイルを作り直す">🔧 音量を焼き込む</button>
+    <span style="font-size:12px;color:rgba(255,255,255,0.8);margin-left:10px;">👤 顔の位置</span>
+    <select id="char-align-select" class="btn-audio"
+      style="padding:4px 8px;font-size:12px;background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;cursor:pointer;"
+      onchange="onCharAlignChange(this.value)" title="挿絵表示中の顔の横位置">
+      <option value="left">← 左</option>
+      <option value="center">｜ 中央</option>
+      <option value="right">→ 右</option>
+    </select>
+    <span class="shortcut-hint">Space: 再生/停止 ｜ ← → : 1フレーム移動</span>
+  </div>
+  <div id="waveform-container">
+    <div id="waveform-loading">音声ファイルを検索中...</div>
+    <div id="waveform"></div>
+  </div>
+  <div class="overlap-warning" id="overlap-warning">⚠️ タイムスタンプが重なっているテロップがあります</div>
+  <div class="shift-controls">
+    <span class="shift-label">全体シフト:</span>
+    <button class="btn-shift" onclick="shiftAll(-1)" title="全テロップを1秒早める">⏪ 全体 -1s（早める）</button>
+    <button class="btn-shift" onclick="shiftAll(+1)" title="全テロップを1秒遅らせる">全体 +1s（遅らせる）⏩</button>
+    <span class="shift-label" style="margin-left:12px">選択シフト:</span>
+    <input type="number" id="shift-amount" class="shift-amount" value="0.5" min="0.1" max="5" step="0.1">
+    <span class="shift-label">秒</span>
+    <button class="btn-shift primary" onclick="shiftSelected(-1)" title="選択中のテロップを早める">⏪ 選択を早める</button>
+    <button class="btn-shift primary" onclick="shiftSelected(+1)" title="選択中のテロップを遅らせる">選択を遅らせる ⏩</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="drop-zone">
+    <div style="font-size:48px">📂</div>
+    <strong>テロップJSON または subtitles.csv をここにドロップ</strong>
+    <div class="sub">または上の「📄 JSONを読み込む」「📂 CSVを開く」ボタンを使用</div>
+    <div class="sub" style="margin-top:8px;font-size:12px;color:#10b981;font-weight:bold;">
+      💡 input/ フォルダに .json を入れてリロードすると自動で読み込まれます
+    </div>
+  </div>
+
+  <div id="table-wrap" style="display:none">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:36px;text-align:center"><input type="checkbox" id="check-all" onchange="toggleAllCheck(this.checked)" style="cursor:pointer" title="全選択"></th>
+            <th style="width:36px"></th>
+            <th style="width:90px">時間(秒)</th>
+            <th style="min-width:260px">テロップ文字</th>
+            <th style="width:76px">サイズ</th>
+            <th style="width:110px">文字色</th>
+            <th style="width:120px">縁取り色</th>
+            <th style="width:140px">背景色</th>
+            <th style="width:170px">効果音🎵 / 挿絵🖼</th>
+            <th style="width:80px">縦位置↕</th>
+            <th style="width:272px">プレビュー</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="add-row-area">
+      <button class="btn btn-add" onclick="addRow()">＋ テロップを追加</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let rows = [];
+let headers = [];
+let serverMode = false; // localhost:3001 経由で開いている場合はtrue
+
+// ── サーバーモード検出 & 自動ロード ──────────────
+(async function initServerMode() {
+  if (location.hostname !== 'localhost' || location.port !== '3001') return;
+  serverMode = true;
+  document.getElementById('server-badge').style.display = 'inline-block';
+  document.getElementById('btn-update').style.display = 'inline-block';
+  document.querySelector('.btn-success').textContent = '💾 保存（自動書込み）';
+
+  // transcript が JSON として読める場合はそれを優先（CSVが古い場合に自動同期）
+  try {
+    const tjRes = await fetch('/api/transcript');
+    if (tjRes.ok) {
+      const json = await tjRes.json();
+      if (json.segments) {
+        // transcript → CSV を同期して保存
+        const syncRes = await fetch('/api/transcript', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(json),
+        });
+        if (syncRes.ok) {
+          const csvRes = await fetch('/api/csv');
+          if (csvRes.ok) { loadCSV(await csvRes.text()); return; }
+        }
+      }
+    }
+  } catch {}
+
+  // fallback: CSV を直接読み込む
+  try {
+    const res = await fetch('/api/csv');
+    if (res.ok) { loadCSV(await res.text()); }
+  } catch {}
+})();
+
+// ── CSV パーサー ──────────────────────────────
+function parseCsv(text) {
+  const result = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"' && text[i+1] === '"') { cell += '"'; i++; }
+      else if (c === '"') inQ = false;
+      else cell += c;
+    } else {
+      if (c === '"') inQ = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n') { row.push(cell); if (row.some(v => v !== '')) result.push(row); row = []; cell = ''; }
+      else if (c !== '\r') cell += c;
+    }
+  }
+  if (row.length) { row.push(cell); result.push(row); }
+  return result;
+}
+
+function toCsv(data) {
+  return data.map(row =>
+    row.map(v => {
+      const s = String(v ?? '');
+      return (s.includes(',') || s.includes('\n') || s.includes('"'))
+        ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }).join(',')
+  ).join('\n');
+}
+
+// ── ユーティリティ ────────────────────────────
+function toValidColor(c) {
+  return /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#ffffff';
+}
+
+function hexToRgb(hex) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return '0,0,0';
+  return [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)].join(',');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function nextId() {
+  return rows.reduce((m, r) => Math.max(m, Number(r[headers.indexOf('id')] || 0)), 0) + 1;
+}
+
+// ── CSV 読み込み ──────────────────────────────
+function loadCSV(csvText) {
+  const parsed = parseCsv(csvText);
+  if (parsed.length < 2) { showToast('❌ CSVの行数が足りません'); return; }
+  headers = parsed[0];
+  rows = parsed.slice(1);
+
+  // 不足カラムを補完
+  const required = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
+  required.forEach(col => {
+    if (!headers.includes(col)) {
+      headers.push(col);
+      rows.forEach(r => r.push(''));
+    }
+  });
+
+  renderTable();
+}
+
+// ── JSON 読み込み（segments → CSV変換してテーブルに反映）──
+function loadTranscriptJSON(json) {
+  if (!json.segments || !Array.isArray(json.segments)) {
+    showToast('❌ 有効なテロップJSONではありません（segmentsがありません）');
+    return;
+  }
+  const cols = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
+  headers = cols;
+  rows = json.segments.map(seg => [
+    String(seg.id ?? ''),
+    String(seg.start ?? 0),
+    String(seg.end ?? 0),
+    seg.text ?? '',
+    String(seg.style?.fontSize ?? 68),
+    seg.style?.color ?? '#ffffff',
+    seg.style?.strokeColor ?? '#000000',
+    String(seg.style?.fontWeight ?? 900),
+    seg.style?.bgColor ?? '',
+    String(seg.style?.bgOpacity ?? 80),
+    seg.sound ?? '',
+    String(seg.posY ?? ''),
+    seg.illustration ?? '',
+  ]);
+  renderTable();
+  showToast(`✅ ${rows.length} 件のテロップを読み込みました`);
+  if (window.onSegmentsLoaded) window.onSegmentsLoaded(json.segments);
+}
+
+async function handleJSONFile(file) {
+  try {
+    const text = await file.text();
+    const json = JSON.parse(text);
+    if (!json.segments) { showToast('❌ segmentsが見つかりません'); return; }
+    if (serverMode) {
+      // サーバーに保存してCSVも自動生成
+      const res = await fetch('/api/transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(json),
+      });
+      const data = await res.json();
+      if (!res.ok) { showToast('❌ 保存失敗: ' + data.error); return; }
+      // CSVをサーバーから再取得してテーブル更新
+      const csvRes = await fetch('/api/csv');
+      if (csvRes.ok) {
+        const csvText = await csvRes.text();
+        loadCSV(csvText);
+        showToast(`✅ ${data.count} 件のテロップを保存・読み込みました`);
+      } else {
+        loadTranscriptJSON(json);
+      }
+    } else {
+      loadTranscriptJSON(json);
+    }
+  } catch (e) {
+    showToast('❌ JSON解析エラー: ' + e.message);
+  }
+}
+
+// ── テーブル描画 ──────────────────────────────
+function renderTable() {
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('table-wrap').style.display = 'block';
+  const tbody = document.getElementById('tbody');
+  tbody.textContent = '';
+
+  rows.forEach((row, i) => {
+    const get = col => row[headers.indexOf(col)] ?? '';
+    const set = (col, val) => { row[headers.indexOf(col)] = val; };
+
+    const text       = get('text');
+    const fontSize   = get('fontSize') || '68';
+    const color      = get('color')    || '#ffffff';
+    const strokeColor= get('strokeColor') || '#000000';
+    const bgColor    = get('bgColor')  || '';
+    const bgOpacity  = parseInt(get('bgOpacity') || '80');
+    const isNoStroke = !strokeColor || strokeColor === 'none' || strokeColor === 'transparent';
+    const hasBg      = !!bgColor;
+
+    const tr = document.createElement('tr');
+
+    // ── チェックボックス ──
+    const tdCheck = document.createElement('td');
+    tdCheck.className = 'check-cell';
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'row-check';
+    chk.dataset.i = String(i);
+    chk.style.cursor = 'pointer';
+    tdCheck.appendChild(chk);
+    tr.appendChild(tdCheck);
+
+    // ── 削除ボタン ──
+    const tdDel = document.createElement('td');
+    tdDel.className = 'del-cell';
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-del';
+    delBtn.title = 'この行を削除';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => deleteRow(i));
+    tdDel.appendChild(delBtn);
+    tr.appendChild(tdDel);
+
+    // ── 時間（編集可能） ──
+    const tdTime = document.createElement('td');
+    const timeWrap = document.createElement('div');
+    timeWrap.className = 'time-wrap';
+
+    const mkTimeInput = (label, colName) => {
+      const lbl = document.createElement('div');
+      lbl.className = 'time-lbl';
+      lbl.textContent = label;
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.className = 'time-input';
+      inp.step = '0.1';
+      inp.min = '0';
+      inp.value = get(colName);
+      inp.addEventListener('change', () => {
+        set(colName, inp.value);
+        validateTimes(i, inp);
+        if (window.onRowTimingChange) window.onRowTimingChange(i, colName, inp.value);
+      });
+      return { lbl, inp };
+    };
+    const { lbl: sLbl, inp: sInp } = mkTimeInput('開始 s', 'start');
+    const { lbl: eLbl, inp: eInp } = mkTimeInput('終了 s', 'end');
+    timeWrap.append(sLbl, sInp, eLbl, eInp);
+    tdTime.appendChild(timeWrap);
+    tr.appendChild(tdTime);
+
+    // ── テキスト ──
+    const tdText = document.createElement('td');
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.addEventListener('input', () => { set('text', ta.value); updatePreview(i); });
+    tdText.appendChild(ta);
+    tr.appendChild(tdText);
+
+    // ── 文字サイズ ──
+    const tdSize = document.createElement('td');
+    const sizeInput = document.createElement('input');
+    sizeInput.type = 'number';
+    sizeInput.className = 'size-input';
+    sizeInput.value = fontSize;
+    sizeInput.min = '10'; sizeInput.max = '200';
+    sizeInput.addEventListener('input', () => { set('fontSize', sizeInput.value); updatePreview(i); });
+    tdSize.appendChild(sizeInput);
+    tr.appendChild(tdSize);
+
+    // ── 文字色 ──
+    const tdColor = document.createElement('td');
+    const colorWrap = document.createElement('div');
+    colorWrap.className = 'color-wrap';
+    const colorPicker = document.createElement('input');
+    colorPicker.type = 'color';
+    colorPicker.value = toValidColor(color);
+    const colorHex = document.createElement('span');
+    colorHex.className = 'color-hex';
+    colorHex.textContent = color;
+    colorPicker.addEventListener('input', () => {
+      set('color', colorPicker.value);
+      colorHex.textContent = colorPicker.value;
+      updatePreview(i);
+    });
+    colorWrap.append(colorPicker, colorHex);
+    tdColor.appendChild(colorWrap);
+    tr.appendChild(tdColor);
+
+    // ── 縁取り色 ──
+    const tdStroke = document.createElement('td');
+    const strokeWrap = document.createElement('div');
+    strokeWrap.className = 'color-wrap';
+    const strokePicker = document.createElement('input');
+    strokePicker.type = 'color';
+    strokePicker.value = toValidColor(isNoStroke ? '#000000' : strokeColor);
+    strokePicker.disabled = isNoStroke;
+    strokePicker.style.opacity = isNoStroke ? '0.3' : '1';
+    const strokeHex = document.createElement('span');
+    strokeHex.className = 'color-hex';
+    strokeHex.textContent = isNoStroke ? 'なし' : strokeColor;
+    const noStrokeLabel = document.createElement('label');
+    noStrokeLabel.className = 'toggle-label';
+    const noStrokeCheck = document.createElement('input');
+    noStrokeCheck.type = 'checkbox';
+    noStrokeCheck.checked = isNoStroke;
+    noStrokeLabel.append(noStrokeCheck, document.createTextNode('なし'));
+
+    const applyStroke = () => {
+      const off = noStrokeCheck.checked;
+      strokePicker.disabled = off;
+      strokePicker.style.opacity = off ? '0.3' : '1';
+      const val = off ? 'transparent' : strokePicker.value;
+      set('strokeColor', val);
+      strokeHex.textContent = off ? 'なし' : strokePicker.value;
+      updatePreview(i);
+    };
+    noStrokeCheck.addEventListener('change', applyStroke);
+    strokePicker.addEventListener('input', () => {
+      set('strokeColor', strokePicker.value);
+      strokeHex.textContent = strokePicker.value;
+      updatePreview(i);
+    });
+    strokeWrap.append(strokePicker, strokeHex, noStrokeLabel);
+    tdStroke.appendChild(strokeWrap);
+    tr.appendChild(tdStroke);
+
+    // ── 背景色 ──
+    const tdBg = document.createElement('td');
+    const bgWrap = document.createElement('div');
+    bgWrap.className = 'bg-wrap';
+    const bgTopRow = document.createElement('div');
+    bgTopRow.className = 'color-wrap';
+    const bgPicker = document.createElement('input');
+    bgPicker.type = 'color';
+    bgPicker.value = hasBg ? toValidColor(bgColor) : '#000000';
+    bgPicker.disabled = !hasBg;
+    bgPicker.style.opacity = hasBg ? '1' : '0.3';
+    const noBgLabel = document.createElement('label');
+    noBgLabel.className = 'toggle-label';
+    const noBgCheck = document.createElement('input');
+    noBgCheck.type = 'checkbox';
+    noBgCheck.checked = !hasBg;
+    noBgLabel.append(noBgCheck, document.createTextNode('なし'));
+
+    const opacityRow = document.createElement('div');
+    opacityRow.className = 'opacity-row';
+    const opacitySlider = document.createElement('input');
+    opacitySlider.type = 'range';
+    opacitySlider.min = '0'; opacitySlider.max = '100';
+    opacitySlider.value = String(bgOpacity);
+    opacitySlider.disabled = !hasBg;
+    const opacityVal = document.createElement('span');
+    opacityVal.textContent = hasBg ? bgOpacity + '%' : '—';
+    opacityRow.append(opacitySlider, opacityVal);
+
+    const applyBg = () => {
+      const off = noBgCheck.checked;
+      bgPicker.disabled = off;
+      bgPicker.style.opacity = off ? '0.3' : '1';
+      opacitySlider.disabled = off;
+      opacityVal.textContent = off ? '—' : opacitySlider.value + '%';
+      set('bgColor', off ? '' : bgPicker.value);
+      set('bgOpacity', off ? '80' : opacitySlider.value);
+      updatePreview(i);
+    };
+    noBgCheck.addEventListener('change', applyBg);
+    bgPicker.addEventListener('input', () => { set('bgColor', bgPicker.value); updatePreview(i); });
+    opacitySlider.addEventListener('input', () => {
+      set('bgOpacity', opacitySlider.value);
+      opacityVal.textContent = opacitySlider.value + '%';
+      updatePreview(i);
+    });
+    bgTopRow.append(bgPicker, noBgLabel);
+    bgWrap.append(bgTopRow, opacityRow);
+    tdBg.appendChild(bgWrap);
+    tr.appendChild(tdBg);
+
+    // ── 効果音 + 挿絵（1セルに上下2行で統合） ──
+    const tdSoundIllust = document.createElement('td');
+    tdSoundIllust.style.cssText = 'padding:4px 6px;vertical-align:top;';
+
+    // 上段: 効果音
+    const soundLabel = document.createElement('div');
+    soundLabel.style.cssText = 'font-size:10px;color:#888;margin-bottom:2px;';
+    soundLabel.textContent = '🎵 効果音';
+    const soundVal = get('sound') || '';
+    const soundSelect = document.createElement('select');
+    soundSelect.className = 'sound-select';
+    const SOUNDS = [
+      { value: '', label: '🔇 なし' },
+      { value: 'sounds/se_intro.mp3',       label: '🎬 intro（OP）' },
+      { value: 'sounds/se_fanfare.mp3',      label: '🎺 fanfare' },
+      { value: 'sounds/se_achievement.mp3',  label: '🏆 achievement' },
+      { value: 'sounds/se_impact.mp3',       label: '💥 impact' },
+      { value: 'sounds/se_treasure.mp3',     label: '💰 treasure' },
+      { value: 'sounds/se_coin.wav',          label: '🪙 coin' },
+      { value: 'sounds/se_money.mp3',        label: '😅 money' },
+      { value: 'sounds/se_drum.mp3',         label: '🥁 drum' },
+      { value: 'sounds/se_applause.mp3',     label: '👏 applause' },
+      { value: 'sounds/se_sugoi.mp3',        label: '✨ sugoi' },
+      { value: 'sounds/se_pikon.mp3',        label: '🔔 pikon' },
+      { value: 'sounds/se_notice.mp3',       label: '🤔 notice' },
+      { value: 'sounds/se_sigh.mp3',         label: '😮‍💨 sigh' },
+    ];
+    SOUNDS.forEach(({ value, label }) => {
+      const opt = document.createElement('option');
+      opt.value = value; opt.textContent = label;
+      if (value === soundVal) opt.selected = true;
+      soundSelect.appendChild(opt);
+    });
+    if (soundVal && !SOUNDS.find(s => s.value === soundVal)) {
+      const opt = document.createElement('option');
+      opt.value = soundVal; opt.textContent = '🔊 ' + soundVal; opt.selected = true;
+      soundSelect.insertBefore(opt, soundSelect.children[1]);
+    }
+    soundSelect.addEventListener('change', () => { set('sound', soundSelect.value); });
+
+    // 下段: 挿絵
+    const illustLabel = document.createElement('div');
+    illustLabel.style.cssText = 'font-size:10px;color:#888;margin-top:5px;margin-bottom:2px;';
+    illustLabel.textContent = '🖼 挿絵';
+    const illustVal = get('illustration') || '';
+    const illustSelect = document.createElement('select');
+    illustSelect.className = 'sound-select';
+    const noneOpt = document.createElement('option');
+    noneOpt.value = ''; noneOpt.textContent = '🖼 なし';
+    if (!illustVal) noneOpt.selected = true;
+    illustSelect.appendChild(noneOpt);
+    illustrationFiles.forEach(file => {
+      const opt = document.createElement('option');
+      opt.value = 'illustrations/' + file;
+      opt.textContent = '🖼 ' + file.replace(/^illust_\d+_/, '').replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
+      if ('illustrations/' + file === illustVal) opt.selected = true;
+      illustSelect.appendChild(opt);
+    });
+    if (illustVal && !illustrationFiles.find(f => 'illustrations/' + f === illustVal)) {
+      const opt = document.createElement('option');
+      opt.value = illustVal; opt.textContent = '🖼 ' + illustVal; opt.selected = true;
+      illustSelect.insertBefore(opt, illustSelect.children[1]);
+    }
+    illustSelect.addEventListener('change', () => { set('illustration', illustSelect.value); });
+
+    tdSoundIllust.append(soundLabel, soundSelect, illustLabel, illustSelect);
+    tr.appendChild(tdSoundIllust);
+
+    // ── 縦位置 (posY) ──
+    const tdPosY = document.createElement('td');
+    const posYWrap = document.createElement('div');
+    posYWrap.className = 'posy-wrap';
+    const posYLbl = document.createElement('div');
+    posYLbl.className = 'posy-lbl';
+    posYLbl.textContent = '下からpx';
+    const posYInput = document.createElement('input');
+    posYInput.type = 'number';
+    posYInput.className = 'posy-input';
+    posYInput.placeholder = '360';
+    posYInput.min = '0'; posYInput.max = '1800'; posYInput.step = '20';
+    posYInput.value = get('posY') || '';
+    posYInput.addEventListener('change', () => { set('posY', posYInput.value); });
+    posYWrap.append(posYLbl, posYInput);
+    tdPosY.appendChild(posYWrap);
+    tr.appendChild(tdPosY);
+
+    // ── プレビュー（Remotion 実寸レンダリング → scale縮小）──
+    const tdPreview = document.createElement('td');
+    tdPreview.className = 'preview-cell';
+    const previewBox = document.createElement('div');
+    previewBox.className = 'preview-box';
+    const scaleInner = document.createElement('div');
+    scaleInner.className = 'preview-scale-inner';
+    scaleInner.id = 'preview-inner-' + i;
+    const preview = document.createElement('p');
+    preview.className = 'preview-text';
+    preview.id = 'preview-' + i;
+    applyPreviewStyle(preview, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg, fontSize });
+    preview.textContent = text.trim() ? text : '（空）';
+    scaleInner.appendChild(preview);
+    previewBox.appendChild(scaleInner);
+    tdPreview.appendChild(previewBox);
+    tr.appendChild(tdPreview);
+    // 縦高さ補正: scale後の余白を margin-bottom 負値で圧縮
+    requestAnimationFrame(() => syncPreviewHeight(i));
+
+    tbody.appendChild(tr);
+  });
+}
+
+// ── プレビュースタイル適用（共通） ──────────────
+// Remotion と同じ実サイズで描画。transform は CSS 側で担う。
+const PREVIEW_SCALE = 252 / 940;  // = 0.2681
+function applyPreviewStyle(el, { color, strokeColor, isNoStroke, bgColor, bgOpacity, hasBg, fontSize }) {
+  const fs = parseFloat(fontSize) || 68;
+  el.style.fontSize = fs + 'px';          // Remotion と同じ実サイズ
+  el.style.color = color || '#ffffff';
+  if (isNoStroke) {
+    el.style.webkitTextStroke = '';
+    el.style.textShadow = '0 12px 18px rgba(0,0,0,0.6)';
+  } else {
+    el.style.webkitTextStroke = '5px ' + strokeColor;    // Remotion と同じ
+    el.style.textShadow = `0 7px 0 ${strokeColor}, 0 12px 18px rgba(0,0,0,0.95), 4px 4px 0 ${strokeColor}, -4px 4px 0 ${strokeColor}`;
+  }
+  if (hasBg && /^#[0-9a-fA-F]{6}$/.test(bgColor)) {
+    const op = (bgOpacity / 100).toFixed(2);
+    el.style.background = `rgba(${hexToRgb(bgColor)},${op})`;
+    el.style.padding = '12px 32px';        // Remotion と同じ
+    el.style.borderRadius = '12px';
+  } else {
+    el.style.background = '';
+    el.style.padding = '';
+    el.style.borderRadius = '';
+  }
+}
+
+// 高さ補正: scale(0.2681)後の余分な高さを margin-bottom 負値で圧縮
+// 例) 1行=80px → 視覚80×0.2681=21.4px。余分=80-21.4=58.6px → margin-bottom:-59px
+function syncPreviewHeight(i) {
+  const inner = document.getElementById('preview-inner-' + i);
+  if (!inner) return;
+  const textEl = inner.querySelector('.preview-text');
+  if (!textEl) return;
+  const domH = textEl.offsetHeight;                      // scale前のDOM高さ
+  const excess = domH * (1 - PREVIEW_SCALE);            // 余分な高さ
+  inner.style.marginBottom = '-' + Math.ceil(excess) + 'px';
+}
+
+function updatePreview(i) {
+  const get = col => rows[i][headers.indexOf(col)] ?? '';
+  const preview = document.getElementById('preview-' + i);
+  if (!preview) return;
+  const sc = get('strokeColor');
+  const bgC = get('bgColor');
+  const bgOp = parseInt(get('bgOpacity') || '80');
+  applyPreviewStyle(preview, {
+    color: get('color') || '#ffffff',
+    strokeColor: sc,
+    isNoStroke: !sc || sc === 'none' || sc === 'transparent',
+    bgColor: bgC,
+    bgOpacity: bgOp,
+    hasBg: !!bgC,
+    fontSize: get('fontSize') || '68',
+  });
+  const text = get('text');
+  preview.textContent = text.trim() ? text : '（空）';
+  requestAnimationFrame(() => syncPreviewHeight(i));
+}
+
+// ── 時間バリデーション ─────────────────────────
+function validateTimes(i, changedInput) {
+  const get = col => rows[i][headers.indexOf(col)] ?? '';
+  const s = parseFloat(get('start'));
+  const e = parseFloat(get('end'));
+  if (!isNaN(s) && !isNaN(e) && e <= s) {
+    changedInput.classList.add('error');
+    showToast('⚠️ 終了時間は開始時間より後にしてください');
+  } else {
+    changedInput.classList.remove('error');
+  }
+}
+
+// ── 行の追加・削除 ────────────────────────────
+function addRow() {
+  const id = nextId();
+  const newRow = headers.map(h => {
+    if (h === 'id')          return String(id);
+    if (h === 'start')       return '0';
+    if (h === 'end')         return '5';
+    if (h === 'text')        return '';
+    if (h === 'fontSize')    return '68';
+    if (h === 'color')       return '#ffffff';
+    if (h === 'strokeColor') return '#000000';
+    if (h === 'fontWeight')  return '900';
+    if (h === 'bgColor')     return '';
+    if (h === 'bgOpacity')   return '80';
+    if (h === 'sound')       return '';
+    return '';
+  });
+  rows.push(newRow);
+  renderTable();
+  document.getElementById('tbody').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function deleteRow(i) {
+  if (!confirm(`行 ${i+1}（${rows[i][headers.indexOf('start')]}s〜${rows[i][headers.indexOf('end')]}s）を削除しますか？`)) return;
+  rows.splice(i, 1);
+  renderTable();
+}
+
+// ── 保存 ─────────────────────────────────────
+async function saveCSV() {
+  // 保存前バリデーション
+  let hasError = false;
+  rows.forEach((row, i) => {
+    const s = parseFloat(row[headers.indexOf('start')] || '0');
+    const e = parseFloat(row[headers.indexOf('end')] || '0');
+    if (e <= s) { hasError = true; }
+  });
+  if (hasError) {
+    showToast('❌ 終了時間が開始時間以下の行があります。修正してから保存してください。');
+    return;
+  }
+
+  // start でソート
+  rows.sort((a, b) => parseFloat(a[headers.indexOf('start')]||0) - parseFloat(b[headers.indexOf('start')]||0));
+
+  const csv = toCsv([headers, ...rows]);
+
+  if (serverMode) {
+    // サーバーモード: input/subtitles.csv に直接書き込む
+    try {
+      const res = await fetch('/api/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv; charset=utf-8' },
+        body: csv,
+      });
+      if (res.ok) {
+        showToast('✅ input/subtitles.csv に保存しました！　import:csv → render を実行してください');
+      } else {
+        showToast('❌ 保存失敗。サーバーを確認してください。');
+      }
+    } catch {
+      showToast('❌ サーバーに接続できません。');
+    }
+  } else {
+    // 通常モード: ダウンロード
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'subtitles.csv';
+    a.click();
+    showToast('✅ 保存しました！　input/ に上書きして import:csv → render を実行してください');
+  }
+}
+
+// ── 保存して更新 ──────────────────────────────
+async function saveAndImport() {
+  const btn = document.getElementById('btn-update');
+  btn.textContent = '⏳ 保存中...';
+  btn.disabled = true;
+  try {
+    // 波形 segments の最終値を rows に同期
+    if (window.getSegments) {
+      const segs = window.getSegments();
+      const idCol    = headers.indexOf('id');
+      const startCol = headers.indexOf('start');
+      const endCol   = headers.indexOf('end');
+      segs.forEach(seg => {
+        const i = rows.findIndex(r => parseInt(r[idCol]) === seg.id);
+        if (i >= 0) {
+          rows[i][startCol] = String(seg.start);
+          rows[i][endCol]   = String(seg.end);
+        }
+      });
+    }
+    await saveCSV();
+    btn.textContent = '⏳ transcript更新中...';
+    const res = await fetch('/api/import', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      showToast('✅ transcript.json を更新しました！Remotionをリロードしてください');
+    } else {
+      showToast('❌ import失敗: ' + data.error);
+    }
+  } catch(e) {
+    showToast('❌ エラー: ' + String(e));
+  } finally {
+    btn.textContent = '⚡️ 保存して更新';
+    btn.disabled = false;
+  }
+}
+
+// ── スタイルリセット ──────────────────────────
+function resetStyles() {
+  if (!confirm('全テロップのサイズ・色をデフォルトに戻しますか？')) return;
+  rows.forEach(row => {
+    const set = (col, val) => { const i = headers.indexOf(col); if (i >= 0) row[i] = val; };
+    set('fontSize', '68'); set('color', '#ffffff');
+    set('strokeColor', '#000000'); set('fontWeight', '900');
+    set('bgColor', ''); set('bgOpacity', '80');
+  });
+  renderTable();
+}
+
+// ── ファイル入力（CSV）──────────────────────────
+document.getElementById('file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => loadCSV(e.target.result);
+  reader.readAsText(file, 'utf-8');
+  this.value = '';
+});
+
+// ── ファイル入力（JSON）──────────────────────────
+document.getElementById('json-file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  handleJSONFile(file);
+  this.value = '';
+});
+
+// ── ドラッグ&ドロップ（CSV / JSON 両対応）────────
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.background = '#eff6ff'; });
+dz.addEventListener('dragleave', () => { dz.style.background = 'white'; });
+dz.addEventListener('drop', e => {
+  e.preventDefault();
+  dz.style.background = 'white';
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  if (file.name.endsWith('.json')) {
+    handleJSONFile(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = ev => loadCSV(ev.target.result);
+    reader.readAsText(file, 'utf-8');
+  }
+});
+dz.addEventListener('click', () => document.getElementById('file-input').click());
+
+// Cmd+Enter → 保存して更新
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    const btn = document.getElementById('btn-update');
+    if (btn && btn.style.display !== 'none' && !btn.disabled) {
+      saveAndImport();
+    }
+  }
+});
+
+// ── チェックボックスユーティリティ ───────────────
+function toggleAllCheck(checked) {
+  document.querySelectorAll('.row-check').forEach(cb => { cb.checked = checked; });
+}
+
+function getSelectedIndices() {
+  return Array.from(document.querySelectorAll('.row-check:checked'))
+    .map(cb => parseInt(cb.dataset.i));
+}
+window.getSelectedIndices = getSelectedIndices;
+
+// rows / headers を外部モジュールから参照できるようにする
+Object.defineProperty(window, '_rows',    { get: () => rows });
+Object.defineProperty(window, '_headers', { get: () => headers });
+
+// ── 波形→テーブル 同期ブリッジ ─────────────────
+window.updateRowTiming = function(segId, start, end) {
+  const idCol    = headers.indexOf('id');
+  const startCol = headers.indexOf('start');
+  const endCol   = headers.indexOf('end');
+  const i = rows.findIndex(r => parseInt(r[idCol]) === segId);
+  if (i < 0) return;
+  rows[i][startCol] = String(start);
+  rows[i][endCol]   = String(end);
+  // テーブルの入力欄も更新
+  const tbody = document.getElementById('tbody');
+  if (!tbody) return;
+  const trs = tbody.querySelectorAll('tr');
+  if (!trs[i]) return;
+  const inputs = trs[i].querySelectorAll('input.time-input');
+  // inputs[0] = start, inputs[1] = end
+  if (inputs[0]) inputs[0].value = start;
+  if (inputs[1]) inputs[1].value = end;
+};
+
+// テーブル行ハイライト（波形ブロッククリック or 再生中）
+window.highlightRow = function(segId) {
+  const idCol = headers.indexOf('id');
+  const i = rows.findIndex(r => parseInt(r[idCol]) === segId);
+  if (i < 0) return;
+  const tbody = document.getElementById('tbody');
+  if (!tbody) return;
+  const allRows = tbody.querySelectorAll('tr');
+  allRows.forEach(tr => tr.style.background = '');
+  if (allRows[i]) {
+    allRows[i].style.background = '#fef9c3'; // 黄色ハイライト
+    allRows[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+};
+
+// テーブル→波形 同期（start/end 入力変更時）
+window.onRowTimingChange = function(i, col, val) {
+  const idCol = headers.indexOf('id');
+  const segId = parseInt(rows[i][idCol]);
+  if (window.getSegments) {
+    const seg = window.getSegments().find(s => s.id === segId);
+    if (seg) {
+      if (col === 'start') seg.start = parseFloat(val) || 0;
+      if (col === 'end')   seg.end   = parseFloat(val) || 0;
+      if (window.renderRegions) window.renderRegions();
+    }
+  }
+};
+
+// ── BGM 選択・試聴 ────────────────────────────────
+let bgmPreviewAudio = null;
+
+async function loadBgmList() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/bgm-files');
+    const files = await res.json(); // ['bgm_morning.mp3', ...]
+    const sel = document.getElementById('bgm-select');
+    files.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = 'sounds/' + f;
+      // ファイル名から表示名を作る: bgm_morning.mp3 → 🎼 morning
+      opt.textContent = '🎼 ' + f.replace(/^bgm_/, '').replace(/\.(mp3|wav)$/, '');
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+function onBgmChange(val) {
+  stopBgmPreview();
+  // transcript.json の bgm フィールドを更新して保存
+  saveBgmToTranscript(val);
+}
+
+// 顔の横位置を transcript.json に保存
+async function onCharAlignChange(val) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.charAlign = val;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    showToast('✅ 顔の位置を「' + (val === 'left' ? '左' : val === 'right' ? '右' : '中央') + '」に変更しました');
+  } catch (e) { console.error('顔の位置保存失敗:', e); }
+}
+
+async function saveBgmToTranscript(bgmPath) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.bgm = bgmPath || null;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    console.log('✅ BGM保存:', bgmPath);
+  } catch (e) { console.error('BGM保存失敗:', e); }
+}
+
+function previewBgm() {
+  const val = document.getElementById('bgm-select').value;
+  if (!val) return;
+  stopBgmPreview();
+  bgmPreviewAudio = new Audio('/' + val);
+  bgmPreviewAudio.volume = 0.4;
+  bgmPreviewAudio.play().catch(() => {});
+}
+
+function stopBgmPreview() {
+  if (bgmPreviewAudio) { bgmPreviewAudio.pause(); bgmPreviewAudio = null; }
+}
+
+// ── 音量調整 ──────────────────────────────────────
+let _volumeSaveTimer = null;
+function onVolumeChange(val) {
+  const v = parseFloat(val);
+  document.getElementById('voice-volume-label').textContent = v.toFixed(1) + '×';
+  // WaveSurfer の再生音量にもリアルタイム反映（max 1.0 にクランプ）
+  if (ws) {
+    ws.setVolume(Math.min(v, 1.0));
+  }
+  // デバウンス: 500ms 後に保存
+  clearTimeout(_volumeSaveTimer);
+  _volumeSaveTimer = setTimeout(() => saveVolumeToTranscript(v), 500);
+}
+
+async function saveVolumeToTranscript(volume) {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    data.volume = volume;
+    await fetch('/api/transcript', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    console.log('✅ 音量保存:', volume);
+  } catch (e) { console.error('音量保存失敗:', e); }
+}
+
+// 音量を音源ファイルに焼き込む（ffmpeg経由）
+async function applyVolumeToFile() {
+  const btn = document.getElementById('volume-apply-btn');
+  const v = parseFloat(document.getElementById('voice-volume').value);
+  const origText = btn.textContent;
+  btn.textContent = '⏳ 処理中...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/apply-volume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ volume: v }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'エラー');
+    btn.textContent = '✅ 完了！';
+    // WaveSurfer を新しいファイルでリロード
+    if (ws) {
+      const audioUrl = `/sounds/audio.mp3?v=${Date.now()}`;
+      await ws.load(audioUrl);
+      ws.setVolume(1.0);
+    }
+    // スライダーを 1.0 に戻す（焼き込み済みなので）
+    document.getElementById('voice-volume').value = 1.0;
+    document.getElementById('voice-volume-label').textContent = '1.0×';
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+  } catch (e) {
+    btn.textContent = '❌ 失敗';
+    alert('音量焼き込み失敗: ' + e.message);
+    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+  }
+}
+
+// ── Remotion Studio 起動（保存→更新→オープン） ───
+async function openRemotionStudio() {
+  const btn = document.getElementById('remotion-btn');
+  const sub = document.getElementById('remotion-btn-sub');
+  btn.style.opacity = '0.7';
+  btn.style.pointerEvents = 'none';
+
+  const reset = () => {
+    sub.textContent = 'プレビュー・書き出し';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = '';
+  };
+
+  try {
+    // ① サーバーモードのときだけ保存→更新を先に実行
+    if (location.hostname === 'localhost') {
+      // 波形 segments の最終値を rows に同期
+      if (window.getSegments) {
+        const segs = window.getSegments();
+        const idCol    = headers.indexOf('id');
+        const startCol = headers.indexOf('start');
+        const endCol   = headers.indexOf('end');
+        segs.forEach(seg => {
+          const i = rows.findIndex(r => parseInt(r[idCol]) === seg.id);
+          if (i >= 0) {
+            rows[i][startCol] = String(seg.start);
+            rows[i][endCol]   = String(seg.end);
+          }
+        });
+      }
+
+      sub.textContent = '💾 保存中...';
+      await saveCSV();
+
+      sub.textContent = '🔄 transcript更新中...';
+      const importRes = await fetch('/api/import', { method: 'POST' });
+      const importData = await importRes.json();
+      if (!importData.ok) {
+        showToast('⚠️ transcript更新に失敗しました: ' + importData.error);
+      }
+    }
+
+    // ② Studio の起動確認
+    const statusRes = await fetch('/api/studio-status');
+    const status = await statusRes.json();
+
+    if (status.running) {
+      sub.textContent = '✅ 保存済み！開きます...';
+      window.open('http://localhost:3000', '_blank');
+      setTimeout(reset, 2000);
+      return;
+    }
+
+    // ③ 未起動 → 起動
+    sub.textContent = '🚀 Remotion起動中...';
+    await fetch('/api/studio-start', { method: 'POST' });
+
+    // 最大20秒ポーリングして起動待ち
+    let ready = false;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      sub.textContent = `🕐 起動待ち (${i + 1}秒)...`;
+      try {
+        const s = await fetch('/api/studio-status');
+        const sv = await s.json();
+        if (sv.running) { ready = true; break; }
+      } catch {}
+    }
+
+    if (ready) {
+      sub.textContent = '✅ 起動完了！';
+      window.open('http://localhost:3000', '_blank');
+    } else {
+      sub.textContent = '⚠️ タイムアウト';
+      alert('Remotion Studio の起動がタイムアウトしました。\nターミナルで「npm run studio」を実行してください。');
+    }
+  } catch (e) {
+    sub.textContent = '❌ エラー';
+    alert('エラーが発生しました。ターミナルで「npm run studio」を実行してください。');
+  }
+
+  setTimeout(reset, 3000);
+}
+
+// 挿絵ファイル一覧
+let illustrationFiles = [];
+async function loadIllustrations() {
+  try {
+    const res = await fetch('/api/illustrations');
+    if (res.ok) illustrationFiles = await res.json();
+  } catch {}
+}
+
+// BGMリストを起動時に読み込む
+loadBgmList();
+loadIllustrations();
+
+// transcript.json ロード時にテーブルを初期化
+window.onSegmentsLoaded = function(segments) {
+  if (rows.length > 0) return; // CSV がすでに読み込まれていれば上書きしない
+  const csvHeaders = ['id','start','end','text','fontSize','color','strokeColor','fontWeight','bgColor','bgOpacity','sound','posY','illustration'];
+  headers = csvHeaders;
+  rows = segments.map(seg => [
+    String(seg.id),
+    String(seg.start),
+    String(seg.end),
+    seg.text || '',
+    '68',
+    '#ffffff',
+    '#000000',
+    '900',
+    '',
+    '80',
+    seg.sound || '',
+    String(seg.posY || 360),
+    seg.illustration || '',
+  ]);
+  renderTable();
+  // サーバーモードの UI も有効化
+  if (location.hostname === 'localhost') {
+    serverMode = true;
+    document.getElementById('server-badge').style.display = 'inline-block';
+    document.getElementById('btn-update').style.display = 'inline-block';
+  }
+};
+</script>
+
+<script type="module">
+import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
+import RegionsPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.esm.js';
+
+let ws = null;
+let wsRegions = null;
+let segments = [];       // transcript.json の segments
+let regionMap = new Map(); // segId(string) → region オブジェクト
+let activeRegionId = null; // 再生中のセグメント ID
+
+// ── 効果音プレビュー ───────────────────────────
+let triggeredSoundIds = new Set(); // 再生済みセグメントID（シーク時にリセット）
+const sfxCache = new Map();        // Audio オブジェクトのキャッシュ
+
+function getSoundForSegment(id) {
+  // 編集中のCSV行から優先取得（未保存でも反映）
+  if (window._headers && window._rows) {
+    const idCol = window._headers.indexOf('id');
+    const soundCol = window._headers.indexOf('sound');
+    if (idCol >= 0 && soundCol >= 0) {
+      const row = window._rows.find(r => parseInt(r[idCol]) === id);
+      if (row && row[soundCol]) return row[soundCol];
+    }
+  }
+  // フォールバック: transcript segments から
+  const seg = segments.find(s => s.id === id);
+  return seg?.sound || null;
+}
+
+function playSoundEffect(soundPath) {
+  // soundPath 例: "sounds/se_coin.wav" → /sounds/se_coin.wav で配信
+  const url = '/' + soundPath;
+  let audio = sfxCache.get(url);
+  if (!audio) {
+    audio = new Audio(url);
+    sfxCache.set(url, audio);
+  }
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+}
+
+// ── WaveSurfer 初期化 ──────────────────────────
+function initWaveSurfer() {
+  if (ws) { ws.destroy(); regionMap.clear(); activeRegionId = null; }
+  wsRegions = RegionsPlugin.create();
+  ws = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: '#93c5fd',
+    progressColor: '#1a56db',
+    height: 80,
+    minPxPerSec: 50,
+    interact: true,
+    plugins: [wsRegions],
+  });
+
+  ws.on('ready', () => {
+    document.getElementById('waveform-loading').style.display = 'none';
+    renderRegions();
+  });
+
+  // 波形クリックで再生
+  ws.on('click', () => { ws.play(); });
+
+  // 再生位置に合わせてテロップをハイライト＋効果音トリガー
+  ws.on('timeupdate', (currentTime) => {
+    const seg = segments.find(s => s.start <= currentTime && currentTime < s.end);
+    const newId = seg ? String(seg.id) : null;
+    if (newId === activeRegionId) return;
+    // 前のハイライトを解除
+    if (activeRegionId) {
+      const prev = regionMap.get(activeRegionId);
+      if (prev && prev.element) prev.element.style.outline = '';
+    }
+    // 新しいハイライトをセット
+    if (newId) {
+      const cur = regionMap.get(newId);
+      if (cur && cur.element) cur.element.style.outline = '3px solid #ef4444';
+      if (window.highlightRow) window.highlightRow(parseInt(newId));
+      // 効果音を再生（再生中かつ未トリガーのセグメントのみ）
+      if (ws.isPlaying() && !triggeredSoundIds.has(newId)) {
+        const sound = getSoundForSegment(parseInt(newId));
+        if (sound) playSoundEffect(sound);
+        triggeredSoundIds.add(newId);
+      }
+    }
+    activeRegionId = newId;
+  });
+
+  // シーク・再生開始時にトリガー済みリセット（同じ箇所を何度でも鳴らせる）
+  ws.on('seeking', () => { triggeredSoundIds.clear(); });
+  ws.on('play',    () => { triggeredSoundIds.clear(); });
+
+  // ドラッグで start/end 更新
+  wsRegions.on('region-updated', (region) => {
+    const id = parseInt(region.id);
+    const seg = segments.find(s => s.id === id);
+    if (seg) {
+      seg.start = Math.round(region.start * 100) / 100;
+      seg.end   = Math.round(region.end   * 100) / 100;
+      if (window.updateRowTiming) window.updateRowTiming(id, seg.start, seg.end);
+    }
+    checkOverlaps();
+  });
+
+  // ブロッククリックでテーブル行ハイライト
+  wsRegions.on('region-clicked', (region, e) => {
+    e.stopPropagation();
+    if (window.highlightRow) window.highlightRow(parseInt(region.id));
+  });
+}
+
+// ── 音声ロード ─────────────────────────────────
+function loadAudioUrl(url, filename) {
+  document.getElementById('waveform-loading').style.display = '';
+  document.getElementById('waveform-loading').textContent = '波形を描画中...';
+  document.getElementById('audio-filename').textContent = filename;
+  initWaveSurfer();
+  ws.load(url);
+}
+
+// Remotion が採用している正規化済み音源を自動ロード
+// public/sounds/audio.mp3 = Remotion と同一音源（音量・EQ処理済み）
+async function autoLoadAudio() {
+  if (location.hostname !== 'localhost') return false;
+  try {
+    // transcript.json の audio フィールドからファイル名を取得
+    const res = await fetch('/api/transcript');
+    if (res.ok) {
+      const t = await res.json();
+      const audioPath = t.audio; // e.g. "sounds/audio.mp3"
+      if (audioPath) {
+        const filename = audioPath.split('/').pop();
+        loadAudioUrl(`/${audioPath}`, filename);
+        return true;
+      }
+    }
+  } catch {}
+  // フォールバック: sounds/audio.mp3 を直接試す
+  try {
+    const probe = await fetch('/sounds/audio.mp3', { method: 'HEAD' });
+    if (probe.ok) {
+      loadAudioUrl('/sounds/audio.mp3', 'audio.mp3');
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+// ファイルピッカーからの読み込み
+document.getElementById('audio-file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  loadAudioUrl(url, file.name);
+});
+
+// ── transcript.json 読み込み ──────────────────
+async function loadTranscript() {
+  if (location.hostname !== 'localhost') return;
+  try {
+    const res = await fetch('/api/transcript');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.segments && data.segments.length > 0) {
+      segments = data.segments.map(s => ({ ...s }));
+      if (window.onSegmentsLoaded) window.onSegmentsLoaded(segments);
+    }
+    // BGM 選択欄を復元
+    if (data.bgm) {
+      const sel = document.getElementById('bgm-select');
+      let found = Array.from(sel.options).find(o => o.value === data.bgm);
+      if (!found) {
+        const opt = document.createElement('option');
+        opt.value = data.bgm;
+        opt.textContent = '🎼 ' + data.bgm.replace('sounds/', '').replace(/^bgm_/, '').replace(/\.(mp3|wav)$/, '');
+        sel.appendChild(opt);
+        found = opt;
+      }
+      sel.value = data.bgm;
+    }
+    // 音量スライダーを復元
+    if (data.volume != null) {
+      const slider = document.getElementById('voice-volume');
+      slider.value = data.volume;
+      document.getElementById('voice-volume-label').textContent = parseFloat(data.volume).toFixed(1) + '×';
+    }
+    // 顔の位置を復元
+    if (data.charAlign) {
+      const sel = document.getElementById('char-align-select');
+      if (sel) sel.value = data.charAlign;
+    }
+  } catch {}
+}
+
+// ── Regions 再描画 ─────────────────────────────
+function renderRegions() {
+  if (!wsRegions || !ws) return;
+  wsRegions.clearRegions();
+  regionMap.clear();
+  activeRegionId = null;
+  segments.forEach((seg, idx) => {
+    const hue = (idx * 47) % 360;
+    const region = wsRegions.addRegion({
+      id: String(seg.id),
+      start: seg.start,
+      end: seg.end,
+      content: seg.text.length > 10 ? seg.text.slice(0, 10) + '…' : seg.text,
+      color: `hsla(${hue}, 70%, 60%, 0.35)`,
+      drag: true,
+      resize: true,
+    });
+    regionMap.set(String(seg.id), region);
+  });
+}
+
+// ── 重なりチェック ─────────────────────────────
+function checkOverlaps() {
+  const sorted = [...segments].sort((a, b) => a.start - b.start);
+  let hasOverlap = false;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].end > sorted[i + 1].start) { hasOverlap = true; break; }
+  }
+  document.getElementById('overlap-warning').style.display = hasOverlap ? '' : 'none';
+}
+
+// ── キーボードショートカット ───────────────────
+// Space: 再生/停止　←→: 1フレーム(0.033s)移動
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  if (!ws) return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    ws.playPause();
+  } else if (e.code === 'ArrowLeft') {
+    e.preventDefault();
+    ws.setTime(Math.max(0, ws.getCurrentTime() - 0.033));
+  } else if (e.code === 'ArrowRight') {
+    e.preventDefault();
+    ws.setTime(Math.min(ws.getDuration(), ws.getCurrentTime() + 0.033));
+  }
+});
+
+// ── 全体シフト ─────────────────────────────────
+window.shiftAll = function(sec) {
+  segments.forEach(seg => {
+    seg.start = Math.max(0, Math.round((seg.start + sec) * 100) / 100);
+    seg.end   = Math.max(0.1, Math.round((seg.end + sec) * 100) / 100);
+    if (window.updateRowTiming) window.updateRowTiming(seg.id, seg.start, seg.end);
+  });
+  renderRegions();
+};
+
+// ── 選択行シフト ───────────────────────────────
+window.shiftSelected = function(direction) {
+  const amount = parseFloat(document.getElementById('shift-amount').value) || 0.5;
+  const sec = direction * amount;
+  const indices = window.getSelectedIndices ? window.getSelectedIndices() : [];
+  const idCol = window._headers ? window._headers.indexOf('id') : -1;
+  const selectedIds = idCol >= 0
+    ? indices.map(i => parseInt(window._rows[i][idCol])).filter(id => !isNaN(id))
+    : [];
+  segments.filter(s => selectedIds.includes(s.id)).forEach(seg => {
+    seg.start = Math.max(0, Math.round((seg.start + sec) * 100) / 100);
+    seg.end   = Math.max(seg.start + 0.1, Math.round((seg.end + sec) * 100) / 100);
+    if (window.updateRowTiming) window.updateRowTiming(seg.id, seg.start, seg.end);
+  });
+  renderRegions();
+};
+
+// ── 外部公開 ───────────────────────────────────
+window.getSegments = () => segments;
+window.renderRegions = renderRegions;
+
+// ── 起動時自動ロード ───────────────────────────
+await loadTranscript();
+const audioLoaded = await autoLoadAudio();
+if (!audioLoaded) {
+  document.getElementById('waveform-loading').textContent =
+    '音声ファイルが見つかりません。「📂 音声を開く」から選択してください';
+}
+</script>
+
+<!-- 新規動画クリアダイアログ -->
+<div id="clear-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeClearModal()">
+  <div class="modal-box" style="max-width:480px;">
+    <div class="modal-header" style="background:#dc2626;">
+      <h2>🗑️ 新規動画の準備</h2>
+      <button class="modal-close" onclick="closeClearModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#374151;margin:0 0 12px;">削除するデータを選んでください。<br>チェックしたものだけが削除されます。</p>
+      <div class="clear-check-item">
+        <input type="checkbox" id="clear-transcript" checked>
+        <label for="clear-transcript">
+          <div class="item-title">📄 テロップデータ</div>
+          <div class="item-desc">transcript.json・image-timeline.json・subtitles.csv</div>
+        </label>
+      </div>
+      <div class="clear-check-item">
+        <input type="checkbox" id="clear-audio" checked>
+        <label for="clear-audio">
+          <div class="item-title">🎵 音声ファイル</div>
+          <div class="item-desc">input/audio/ 内のすべての音声ファイル</div>
+        </label>
+      </div>
+      <div class="clear-check-item">
+        <input type="checkbox" id="clear-inserts" checked>
+        <label for="clear-inserts">
+          <div class="item-title">🖼️ 挿絵画像</div>
+          <div class="item-desc">public/images/inserts/ 内のすべての画像</div>
+        </label>
+      </div>
+      <div class="clear-check-item">
+        <input type="checkbox" id="clear-chars">
+        <label for="clear-chars">
+          <div class="item-title">👤 人物画像（char0〜）</div>
+          <div class="item-desc">public/images/char*.png／jpg（次回も同じ人物なら不要）</div>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeClearModal()">キャンセル</button>
+      <button class="clear-exec-btn" onclick="execClear()">🗑️ 削除を実行</button>
+    </div>
+  </div>
+</div>
+
+<!-- ブランド設定モーダル -->
+<div id="brand-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeBrandModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>⚙️ ブランド設定</h2>
+      <button class="modal-close" onclick="closeBrandModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-section-title">👤 プロフィール</div>
+      <div class="modal-field">
+        <label>名前</label>
+        <input type="text" id="brand-name" placeholder="例：平松悟">
+      </div>
+      <div class="modal-field">
+        <label>肩書き</label>
+        <input type="text" id="brand-title" placeholder="例：動画クリエイター">
+      </div>
+
+      <div class="modal-section-title" style="margin-top:4px;">🎨 デザイン</div>
+      <div class="modal-field">
+        <label>ブランドカラー</label>
+        <div class="modal-color-row">
+          <input type="color" id="brand-color-picker" value="#1a56db" oninput="document.getElementById('brand-color-hex').value=this.value">
+          <input type="text" id="brand-color-hex" placeholder="#1a56db" maxlength="7"
+            oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))document.getElementById('brand-color-picker').value=this.value">
+        </div>
+      </div>
+      <div class="modal-field">
+        <label>背景グラデーション（CSS の background 値）</label>
+        <input type="text" id="brand-background" placeholder="linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)">
+        <span class="field-hint">CSS の background プロパティをそのまま入力。単色なら #1a2b3c でも可。</span>
+      </div>
+
+      <div class="modal-section-title" style="margin-top:4px;">🐾 ペット・機能</div>
+      <div class="modal-field">
+        <label>ペット画像パス（public/ 以下の相対パス）</label>
+        <input type="text" id="brand-pet-image" placeholder="images/koko.png">
+      </div>
+      <div class="modal-toggle-row">
+        <input type="checkbox" id="brand-pet-enabled">
+        <label for="brand-pet-enabled">ペット画像を表示する</label>
+      </div>
+      <div class="modal-toggle-row">
+        <input type="checkbox" id="brand-sfx-enabled">
+        <label for="brand-sfx-enabled">効果音（SFX）を有効にする</label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-cancel-btn" onclick="closeBrandModal()">キャンセル</button>
+      <button class="modal-save-btn" onclick="saveBrand()">💾 保存する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ブランド設定モーダル ───────────────────────
+async function openBrandModal() {
+  try {
+    const res = await fetch('/api/brand');
+    if (res.ok) {
+      const b = await res.json();
+      document.getElementById('brand-name').value = b.name || '';
+      document.getElementById('brand-title').value = b.title || '';
+      const color = b.brandColor || '#1a56db';
+      document.getElementById('brand-color-picker').value = color;
+      document.getElementById('brand-color-hex').value = color;
+      document.getElementById('brand-background').value = b.background || '';
+      document.getElementById('brand-pet-image').value = b.petImage || '';
+      document.getElementById('brand-pet-enabled').checked = b.petEnabled !== false;
+      document.getElementById('brand-sfx-enabled').checked = b.sfxEnabled !== false;
+    }
+  } catch(e) { console.warn('brand load failed', e); }
+  document.getElementById('brand-modal').classList.remove('hidden');
+}
+
+function closeBrandModal() {
+  document.getElementById('brand-modal').classList.add('hidden');
+}
+
+async function saveBrand() {
+  const colorHex = document.getElementById('brand-color-hex').value.trim();
+  const payload = {
+    name: document.getElementById('brand-name').value.trim(),
+    title: document.getElementById('brand-title').value.trim(),
+    brandColor: /^#[0-9a-fA-F]{6}$/.test(colorHex) ? colorHex : document.getElementById('brand-color-picker').value,
+    background: document.getElementById('brand-background').value.trim(),
+    petImage: document.getElementById('brand-pet-image').value.trim(),
+    petEnabled: document.getElementById('brand-pet-enabled').checked,
+    sfxEnabled: document.getElementById('brand-sfx-enabled').checked,
+    characterPosition: 'left-bottom',
+  };
+  try {
+    const res = await fetch('/api/brand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      showToast('✅ ブランド設定を保存しました');
+      closeBrandModal();
+    } else {
+      showToast('❌ 保存失敗: ' + res.status);
+    }
+  } catch(e) {
+    showToast('❌ エラー: ' + e.message);
+  }
+}
+
+window.openBrandModal = openBrandModal;
+window.closeBrandModal = closeBrandModal;
+window.saveBrand = saveBrand;
+
+// ── 新規動画クリア ───────────────────────────
+function openClearModal() {
+  document.getElementById('clear-modal').classList.remove('hidden');
+}
+function closeClearModal() {
+  document.getElementById('clear-modal').classList.add('hidden');
+}
+async function execClear() {
+  const payload = {
+    clearTranscript: document.getElementById('clear-transcript').checked,
+    clearAudio:      document.getElementById('clear-audio').checked,
+    clearInserts:    document.getElementById('clear-inserts').checked,
+    clearChars:      document.getElementById('clear-chars').checked,
+  };
+  if (!payload.clearTranscript && !payload.clearAudio && !payload.clearInserts && !payload.clearChars) {
+    showToast('⚠️ 削除する項目を選んでください');
+    return;
+  }
+  const btn = document.querySelector('.clear-exec-btn');
+  btn.textContent = '⏳ 削除中...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/clear-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      closeClearModal();
+      showToast(`✅ ${data.deleted.length} ファイルを削除しました`);
+      // テロップデータを消した場合は画面もリセット
+      if (payload.clearTranscript) {
+        rows = [];
+        headers = [];
+        document.getElementById('table-wrap').style.display = 'none';
+        document.getElementById('drop-zone').style.display = 'block';
+      }
+    } else {
+      showToast('❌ 削除失敗: ' + (data.error || '不明'));
+    }
+  } catch(e) {
+    showToast('❌ エラー: ' + e.message);
+  } finally {
+    btn.textContent = '🗑️ 削除を実行';
+    btn.disabled = false;
+  }
+}
+window.openClearModal = openClearModal;
+window.closeClearModal = closeClearModal;
+window.execClear = execClear;
+</script>
+</body>
+</html>

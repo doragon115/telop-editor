@@ -1,0 +1,10 @@
+{
+  "name": "平松悟",
+  "title": "動画クリエイター",
+  "petImage": "images/coco.png",
+  "petEnabled": true,
+  "characterPosition": "left-bottom",
+  "sfxEnabled": true,
+  "brandColor": "#1a56db",
+  "background": "linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)"
+}

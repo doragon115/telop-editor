@@ -1,0 +1,16 @@
+portrait_001.png：1本指で説明
+portrait_002.png：ノートPC操作
+portrait_003.png：説明ポーズ（手を広げる）
+portrait_004.png：横向き指差し
+portrait_005.png：GitHub画面と一緒に説明
+portrait_006.png：考えるポーズ（あごに手）
+portrait_007.png：両手で説明
+portrait_008.png：親指を立てる
+portrait_009.png：カジュアルな話しポーズ
+portrait_010.png：3本指
+portrait_011.png：PC画面を指さす
+portrait_012.png：考える（別アングル）
+portrait_013.png：PC画面を指さす（別ポーズ）
+portrait_014.png：話しているポーズ
+portrait_015.png：OKサイン
+portrait_016.png：猫と一緒

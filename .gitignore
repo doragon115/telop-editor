@@ -1,0 +1,29 @@
+node_modules/
+.env
+.DS_Store
+dist/
+out/
+build/
+
+# 個人素材・音声・画像（公開リポジトリに含めない）
+input/audio/*.mp3
+input/audio/*.wav
+input/images/*.jpg
+input/images/*.png
+input/images/*.jpeg
+input/subtitles.csv
+input/transcript.json
+input/scene-map.json
+public/audio/
+public/illustrations/
+public/sounds/*.mp3
+public/sounds/*.wav
+!public/sounds/bgm_*.mp3
+!public/sounds/se_*.mp3
+!public/sounds/se_*.wav
+public/transcript.json
+public/bgm/
+
+# バックアップファイル
+*.bak
+input/transcript.backup-*.json

@@ -1,0 +1,16 @@
+insert_001.png：AI動画の作り方（タイトル）
+insert_002.png：テロップエディター
+insert_003.png：GitHubで無料公開中
+insert_004.png：CSVを読み込んで自動テロップ生成
+insert_005.png：プログラミング知識は不要！
+insert_006.png：たった4ステップ
+insert_007.png：Node.jsを使います（無料）
+insert_008.png：ZIPをダウンロード
+insert_009.png：ターミナルを開く
+insert_010.png：コマンドを順番に実行
+insert_011.png：ブラウザで自動的に開く
+insert_012.png：CSVを編集して保存
+insert_013.png：プレビューで確認
+insert_014.png：ワンクリックで反映！（保存して更新）
+insert_015.png：動画を書き出して完成！
+insert_016.png：チャンネル登録お願いします！

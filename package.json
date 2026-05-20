@@ -1,0 +1,36 @@
+{
+  "name": "auto-short-video-maker",
+  "version": "1.0.0",
+  "description": "音声ファイル＋人物画像4枚から縦長ショート動画を自動生成",
+  "scripts": {
+    "transcribe": "python3 scripts/generate-transcript.py",
+    "whisper": "python3 scripts/generate-transcript.py input/audio/audio.mp3",
+    "dev": "tsx scripts/prepare.ts && remotion studio src/index.tsx",
+    "render": "tsx scripts/prepare.ts && tsx scripts/render.ts",
+    "prepare:assets": "tsx scripts/prepare.ts",
+    "studio": "remotion studio src/index.tsx",
+    "export:csv": "tsx scripts/export-csv.ts",
+    "import:csv": "tsx scripts/import-csv.ts",
+    "editor": "tsx scripts/editor-server.ts",
+    "splitter": "tsx scripts/editor-server.ts",
+    "doctor": "tsx scripts/doctor.ts",
+    "new-video": "tsx scripts/new-video.ts",
+    "typecheck": "tsc --noEmit",
+    "refresh": "tsx scripts/prepare.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "^4.0.0",
+    "@remotion/cli": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "remotion": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.4.0"
+  }
+}
