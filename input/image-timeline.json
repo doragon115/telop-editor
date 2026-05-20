@@ -1,0 +1,16 @@
+[
+  { "file": "images/inserts/insert_001.png", "start": 0.1,  "end": 6.5,  "note": "AI動画の作り方 - イントロ" },
+  { "file": "images/inserts/insert_005.png", "start": 6.8,  "end": 9.3,  "note": "プログラミング知識は不要 - コピペだけ" },
+  { "file": "images/inserts/github_page.png",        "start": 9.7,  "end": 22.0, "note": "GitHubページ - 緑のCodeボタンが見える" },
+  { "file": "images/inserts/github_zip_dropdown.png", "start": 22.1, "end": 29.3, "note": "Codeボタン押すとDownload ZIPが出る" },
+  { "file": "images/inserts/insert_008.png",          "start": 30.0, "end": 39.8, "note": "ZIPダウンロードアイコン - 右上にZIPが出た〜確認" },
+  { "file": "images/inserts/insert_006.png", "start": 39.9, "end": 49.6, "note": "4ステップフロー - ZIPフォルダ解凍〜これが本体" },
+  { "file": "images/inserts/insert_007.png", "start": 49.8, "end": 72.2, "note": "Node.jsロゴ - Node.jsをインストール" },
+  { "file": "images/inserts/insert_009.png", "start": 72.5, "end": 84.4, "note": "ターミナルアイコン - 黒い画面を開く" },
+  { "file": "images/inserts/insert_010.png", "start": 84.6, "end": 104.1,"note": "ターミナルコマンド - フォルダ移動〜npm run dev実行" },
+  { "file": "images/inserts/insert_011.png", "start": 104.4,"end": 107.8,"note": "localhost:3000 - 画面が出ました" },
+  { "file": "images/inserts/insert_002.png", "start": 107.9,"end": 110.1,"note": "テロップエディター - これがAI動画を作る画面" },
+  { "file": "images/inserts/insert_015.png", "start": 110.7,"end": 113.7,"note": "動画書き出し完成 - しかも無料" },
+  { "file": "images/inserts/insert_013.png", "start": 114.4,"end": 117.0,"note": "プレビュー確認 - レンダーボタンで書き出し" },
+  { "file": "images/inserts/insert_016.png", "start": 117.6,"end": 121.1,"note": "チャンネル登録CTA - 次回予告・締め" }
+]
