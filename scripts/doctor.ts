@@ -118,6 +118,49 @@ if (fs.existsSync(soundsDir)) {
   warn('public/sounds/ がありません → npm run prepare:assets を実行');
 }
 
+// 旧名称ファイル検出
+console.log('\n── 旧名称チェック ────────────────');
+const BANNED_NAMES: Record<string, string> = {
+  'koko.png': 'coco.png',
+};
+const imagesDir = path.join(ROOT, 'public', 'images');
+let bannedFound = false;
+if (fs.existsSync(imagesDir)) {
+  const walkImages = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walkImages(fullPath); continue; }
+      if (BANNED_NAMES[entry.name]) {
+        const correct = BANNED_NAMES[entry.name];
+        err(`旧名称ファイル検出: ${path.relative(ROOT, fullPath)}`);
+        console.log(`     → 正しい名前: ${correct} に変更してください`);
+        bannedFound = true;
+      }
+    }
+  };
+  walkImages(imagesDir);
+  if (!bannedFound) ok('旧名称ファイルなし');
+} else {
+  warn('public/images/ フォルダがありません');
+}
+
+// 音源ファイル名チェック
+console.log('\n── 音源名チェック ────────────────');
+if (fs.existsSync(audioDir)) {
+  const audioFiles2 = fs.readdirSync(audioDir).filter(f => /\.(mp3|wav|m4a|aac)$/i.test(f));
+  if (audioFiles2.length > 1) {
+    err(`input/audio/ に複数の音源ファイルがあります: ${audioFiles2.join(', ')}`);
+    console.log('     → audio.mp3 だけ残して他は削除してください');
+  } else if (audioFiles2.length === 1 && audioFiles2[0] !== 'audio.mp3') {
+    err(`音源ファイル名が不正: ${audioFiles2[0]}`);
+    console.log('     → ファイル名を「audio.mp3」に変更してください');
+  } else if (audioFiles2.length === 1) {
+    ok('音源ファイル: audio.mp3');
+  } else {
+    warn('input/audio/ に音源ファイルがありません');
+  }
+}
+
 // ポート確認
 console.log('\n── ポート状況 ────────────────────');
 if (isPortOpen(3001)) ok('3001 → エディターサーバー起動中');
