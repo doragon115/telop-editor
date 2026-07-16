@@ -22,14 +22,46 @@
   .hint { font-size: 12px; color: #888; }
 
   .container { padding: 24px 32px; }
-  .table-scroll { overflow-x: auto; }
+  .table-scroll { overflow-x: visible; }
 
-  table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); min-width: 1000px; table-layout: fixed; }
-  thead tr { background: #1a56db; color: white; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent; table-layout: auto; }
+  thead { display: none; }
+  tbody { display: grid; gap: 14px; }
+  tr.telop-card {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 10px 12px;
+    align-items: center;
+    padding: 14px;
+    background: white;
+    border: 1px solid #dbe3f4;
+    border-left: 5px solid #1a56db;
+    border-radius: 14px;
+    box-shadow: 0 2px 9px rgba(31, 61, 122, 0.08);
+  }
   th { padding: 11px 10px; text-align: left; font-size: 12px; white-space: nowrap; }
-  td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-  tr:last-child td { border-bottom: none; }
-  tr:hover td { background: #f8f9ff; }
+  td { display: block; min-width: 0; padding: 4px; border: 0; vertical-align: middle; }
+  tr.telop-card:hover { border-color: #93b4f7; box-shadow: 0 4px 14px rgba(31, 61, 122, 0.13); }
+  tr.telop-card td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .cell-check { grid-column: 1; grid-row: 1; }
+  .cell-delete { grid-column: 2; grid-row: 1; }
+  .cell-time { grid-column: 3 / 5; grid-row: 1; }
+  .cell-text { grid-column: 5 / 9; grid-row: 1; }
+  .cell-preview { grid-column: 9 / 13; grid-row: 1; }
+  .cell-size { grid-column: 1 / 3; grid-row: 2; }
+  .cell-color { grid-column: 3 / 5; grid-row: 2; }
+  .cell-stroke { grid-column: 5 / 7; grid-row: 2; }
+  .cell-background { grid-column: 7 / 9; grid-row: 2; }
+  .cell-media { grid-column: 9 / 11; grid-row: 2; }
+  .cell-position { grid-column: 11 / 13; grid-row: 2; }
 
   /* 削除ボタン列 */
   .del-cell { width: 36px; text-align: center; padding: 4px; }
@@ -69,9 +101,10 @@
      ・横: .preview-box の overflow:hidden + 固定幅でclip
      ・縦: margin-bottom 負値で余分な高さを圧縮
      ======================================================== */
-  .preview-cell { width: 272px; max-width: 272px; }
+  .preview-cell { width: 100%; max-width: 100%; }
   .preview-box {
     width: 252px;          /* 940 × (252/940) = 252px ← ここで横をclip */
+    max-width: 100%;
     overflow: hidden;      /* 940px の内枠をここで252pxに切り取る */
     background: linear-gradient(160deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
     border-radius: 10px;
@@ -98,6 +131,46 @@
     width: 940px;
     padding: 0;
     margin: 0;
+  }
+
+  @media (max-width: 1100px) {
+    .container { padding: 18px 20px; }
+    tr.telop-card { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+    .cell-check { grid-column: 1; grid-row: 1; }
+    .cell-delete { grid-column: 2; grid-row: 1; }
+    .cell-time { grid-column: 3 / 5; grid-row: 1; }
+    .cell-text { grid-column: 5 / 13; grid-row: 1; }
+    .cell-preview { grid-column: 5 / 13; grid-row: 2; }
+    .cell-size { grid-column: 1 / 3; grid-row: 3; }
+    .cell-color { grid-column: 3 / 5; grid-row: 3; }
+    .cell-stroke { grid-column: 5 / 7; grid-row: 3; }
+    .cell-background { grid-column: 7 / 9; grid-row: 3; }
+    .cell-media { grid-column: 9 / 13; grid-row: 3; }
+    .cell-position { grid-column: 1 / 5; grid-row: 2; }
+    .preview-box { margin-left: 0; }
+  }
+
+  @media (max-width: 700px) {
+    header, .toolbar, #setup-guide { padding-left: 14px !important; padding-right: 14px !important; }
+    .waveform-section { margin-left: 10px; margin-right: 10px; }
+    .container { padding: 12px 10px; }
+    tr.telop-card { gap: 10px; padding: 12px 10px; }
+    .cell-check { grid-column: 1 / 2; grid-row: 1; }
+    .cell-delete { grid-column: 2 / 3; grid-row: 1; }
+    .cell-time { grid-column: 3 / 13; grid-row: 1; }
+    .cell-text { grid-column: 1 / 13; grid-row: 2; }
+    .cell-preview { grid-column: 1 / 13; grid-row: 3; }
+    .cell-size { grid-column: 1 / 7; grid-row: 4; }
+    .cell-color { grid-column: 7 / 13; grid-row: 4; }
+    .cell-stroke { grid-column: 1 / 7; grid-row: 5; }
+    .cell-background { grid-column: 7 / 13; grid-row: 5; }
+    .cell-media { grid-column: 1 / 13; grid-row: 6; }
+    .cell-position { grid-column: 1 / 13; grid-row: 7; }
+    .time-wrap { flex-direction: row; align-items: end; flex-wrap: wrap; }
+    .time-input { width: min(120px, 38vw); }
+    textarea { min-height: 72px; }
+    .preview-box { width: 252px; max-width: 100%; }
+    .sound-select { min-height: 36px; }
   }
 
   /* 追加ボタン行 */
@@ -529,10 +602,11 @@ function renderTable() {
     const hasBg      = !!bgColor;
 
     const tr = document.createElement('tr');
+    tr.className = 'telop-card';
 
     // ── チェックボックス ──
     const tdCheck = document.createElement('td');
-    tdCheck.className = 'check-cell';
+    tdCheck.className = 'check-cell cell-check';
     const chk = document.createElement('input');
     chk.type = 'checkbox';
     chk.className = 'row-check';
@@ -543,7 +617,7 @@ function renderTable() {
 
     // ── 削除ボタン ──
     const tdDel = document.createElement('td');
-    tdDel.className = 'del-cell';
+    tdDel.className = 'del-cell cell-delete';
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-del';
     delBtn.title = 'この行を削除';
@@ -554,6 +628,8 @@ function renderTable() {
 
     // ── 時間（編集可能） ──
     const tdTime = document.createElement('td');
+    tdTime.className = 'cell-time';
+    tdTime.dataset.label = '時間';
     const timeWrap = document.createElement('div');
     timeWrap.className = 'time-wrap';
 
@@ -582,6 +658,8 @@ function renderTable() {
 
     // ── テキスト ──
     const tdText = document.createElement('td');
+    tdText.className = 'cell-text';
+    tdText.dataset.label = 'テロップ文字';
     const ta = document.createElement('textarea');
     ta.value = text;
     ta.addEventListener('input', () => { set('text', ta.value); updatePreview(i); });
@@ -590,6 +668,8 @@ function renderTable() {
 
     // ── 文字サイズ ──
     const tdSize = document.createElement('td');
+    tdSize.className = 'cell-size';
+    tdSize.dataset.label = 'サイズ';
     const sizeInput = document.createElement('input');
     sizeInput.type = 'number';
     sizeInput.className = 'size-input';
@@ -601,6 +681,8 @@ function renderTable() {
 
     // ── 文字色 ──
     const tdColor = document.createElement('td');
+    tdColor.className = 'cell-color';
+    tdColor.dataset.label = '文字色';
     const colorWrap = document.createElement('div');
     colorWrap.className = 'color-wrap';
     const colorPicker = document.createElement('input');
@@ -620,6 +702,8 @@ function renderTable() {
 
     // ── 縁取り色 ──
     const tdStroke = document.createElement('td');
+    tdStroke.className = 'cell-stroke';
+    tdStroke.dataset.label = '縁取り色';
     const strokeWrap = document.createElement('div');
     strokeWrap.className = 'color-wrap';
     const strokePicker = document.createElement('input');
@@ -658,6 +742,8 @@ function renderTable() {
 
     // ── 背景色 ──
     const tdBg = document.createElement('td');
+    tdBg.className = 'cell-background';
+    tdBg.dataset.label = '背景色';
     const bgWrap = document.createElement('div');
     bgWrap.className = 'bg-wrap';
     const bgTopRow = document.createElement('div');
@@ -709,6 +795,8 @@ function renderTable() {
 
     // ── 効果音 + 挿絵（1セルに上下2行で統合） ──
     const tdSoundIllust = document.createElement('td');
+    tdSoundIllust.className = 'cell-media';
+    tdSoundIllust.dataset.label = '効果音・挿絵';
     tdSoundIllust.style.cssText = 'padding:4px 6px;vertical-align:top;';
 
     // 上段: 効果音
@@ -777,6 +865,8 @@ function renderTable() {
 
     // ── 縦位置 (posY) ──
     const tdPosY = document.createElement('td');
+    tdPosY.className = 'cell-position';
+    tdPosY.dataset.label = '縦位置';
     const posYWrap = document.createElement('div');
     posYWrap.className = 'posy-wrap';
     const posYLbl = document.createElement('div');
@@ -795,7 +885,8 @@ function renderTable() {
 
     // ── プレビュー（Remotion 実寸レンダリング → scale縮小）──
     const tdPreview = document.createElement('td');
-    tdPreview.className = 'preview-cell';
+    tdPreview.className = 'preview-cell cell-preview';
+    tdPreview.dataset.label = 'プレビュー';
     const previewBox = document.createElement('div');
     previewBox.className = 'preview-box';
     const scaleInner = document.createElement('div');
