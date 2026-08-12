@@ -7,6 +7,7 @@
 
 import json
 import subprocess
+from pathlib import Path
 
 
 def _run(args):
@@ -87,6 +88,37 @@ def _fps_of(rate) -> float:
         denominator = float(denominator)
         return float(numerator) / denominator if denominator else 0.0
     return float(rate)
+
+
+def extract_source_audio(video_path: str, audio_path: str) -> str:
+    """元の音声トラックをそのまま抜き出す。書き出しの元になるもの。
+
+    再エンコードせずコピーするので、音質は元のまま、17分で20MB前後に収まる。
+    これを抜いておけば **元動画は消してよい**。以降の段はどれも動画を読まない。
+    ディスクが厳しいときはここが効く。
+
+    コピーできない組み合わせのときだけ mp3 に焼き直す。
+    """
+    try:
+        _run(["ffmpeg", "-y", "-i", video_path, "-vn", "-c:a", "copy", audio_path])
+        return audio_path
+    except RuntimeError:
+        fallback = str(Path(audio_path).with_suffix(".mp3"))
+        _run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                video_path,
+                "-vn",
+                "-codec:a",
+                "libmp3lame",
+                "-q:a",
+                "0",
+                fallback,
+            ]
+        )
+        return fallback
 
 
 def extract_audio(video_path: str, audio_path: str, sample_rate: int = 16000) -> str:

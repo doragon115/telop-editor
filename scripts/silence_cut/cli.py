@@ -66,13 +66,33 @@ def stage_probe(args, out: Path) -> dict:
     return info
 
 
+def source_audio_path(out: Path) -> Path:
+    """抜き出し済みの元音声を探す。コピーできたかで拡張子が変わる。"""
+    for candidate in (out / "source_audio.m4a", out / "source_audio.mp3"):
+        if candidate.exists():
+            return candidate
+    return out / "source_audio.m4a"
+
+
 def stage_audio(args, out: Path) -> Path:
+    """解析用の wav と、書き出しの元になる音声を作る。
+
+    この段が終われば元動画は要らなくなる。ディスクが厳しいときは
+    ここで元動画を消してから先へ進める。
+    """
+    source = source_audio_path(out)
+    if not source.exists() or args.force:
+        log("元の音声トラックを抜き出しています")
+        source = Path(probe_module.extract_source_audio(args.input, str(source)))
+        log(f"元音声: {source}（{source.stat().st_size / 1e6:.1f}MB）")
+
     path = out / "audio.wav"
-    if path.exists() and not args.force:
-        return path
-    log("音声を抜き出しています")
-    probe_module.extract_audio(args.input, str(path))
-    log(f"音声: {path.stat().st_size / 1e6:.1f}MB")
+    if not path.exists() or args.force:
+        log("解析用の音声を作っています")
+        probe_module.extract_audio(str(source), str(path))
+        log(f"解析用: {path.stat().st_size / 1e6:.1f}MB")
+
+    log(f"ここから先は元動画を読みません。消して構いません: {args.input}")
     return path
 
 
@@ -130,7 +150,13 @@ def stage_audiocut(args, out: Path, segments) -> Path:
         log(f"作り置きを使います: {path}")
     else:
         log("カット済み音声を書き出しています")
-        render_module.render_audio(args.input, segments, str(path), work_dir=str(out))
+        # 元動画ではなく、抜き出しておいた音声から切る。
+        # こうしておけば、この時点で元動画が消えていても書き出せる。
+        source = source_audio_path(out)
+        if not source.exists():
+            log(f"{source} がありません。audio の段からやり直してください")
+            raise SystemExit(1)
+        render_module.render_audio(str(source), segments, str(path), work_dir=str(out))
         log(f"書き出し完了: {path}（{path.stat().st_size / 1e6:.1f}MB）")
 
     if args.install:
