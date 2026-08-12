@@ -33,6 +33,7 @@ Remotion（React ベース）を使った縦型ショート動画（1080×1920�
 | `src/components/SubtitleLayer.tsx` | テロップレイヤー |
 | `src/components/SoundLayer.tsx` | 効果音レイヤー |
 | `src/components/InsertLayer.tsx` | 挿入画像レイヤー |
+| `scripts/silence_cut/` | 無音カット・フィラー削除（`npm run cut`）。docs/SILENCE-CUT.md 参照 |
 | `scripts/editor-server.ts` | エディター用 HTTP サーバー |
 | `scripts/prepare.ts` | input/ → public/ コピー・音声正規化 |
 | `scripts/doctor.ts` | 環境チェック |
@@ -51,7 +52,10 @@ Remotion（React ベース）を使った縦型ショート動画（1080×1920�
 ```bash
 npm run doctor          # 環境チェック
 npm run new-video       # 新規動画を開始（既存データをアーカイブ）
+npm run cut -- 元動画.mp4 --install   # 無音とフィラーを落として input/audio/audio.mp3 に置く
 npm run transcribe      # Whisper で文字起こし
+npm run image-timeline  # transcript.json から挿絵の枠を並べた下書きを作る
+npm run test:cut        # 無音カットのテスト
 npm run prepare:assets  # input/ → public/ にコピー（変更後は必ず実行）
 npm run editor          # テロップエディター起動 → http://localhost:3001
 npm run studio          # Remotion Studio 起動 → http://localhost:3000
@@ -63,8 +67,18 @@ npm run typecheck       # TypeScript 型チェック
 
 ## transcript.json 構造
 
+正本は `src/types/transcript.ts`。見た目の既定値は `src/components/SubtitleLayer.tsx`。
+
+`generate-transcript.py` が作るのは `id` / `start` / `end` / `text` / `scene` /
+`character` / `emphasis` / `sound` まで。見た目を変えたいセグメントにだけ
+`style` と `posY` を足す（無ければ既定値が使われる）。
+
+**見た目の値は `style` の中に入れる。** セグメント直下に `fontSize` を書いても効かない
+（`SubtitleLayer` は `seg.style?.fontSize` を読む）。
+
 ```json
 {
+  "title": "audio",
   "audio": "sounds/audio.mp3",
   "bgm": "sounds/bgm_morning.mp3",
   "bgmVolume": 0.07,
@@ -77,18 +91,51 @@ npm run typecheck       # TypeScript 型チェック
       "start": 0.0,
       "end": 3.2,
       "text": "テロップ文字",
-      "fontSize": 68,
-      "color": "#ffffff",
-      "strokeColor": "#000000",
-      "bgColor": "rgba(0,0,0,0.5)",
-      "bgOpacity": 0.5,
-      "posY": 1400,
+      "scene": "pointing",
+      "character": 1,
+      "emphasis": null,
       "sound": "sounds/se_pop.wav",
-      "illustration": ""
+      "illustration": null,
+      "posY": 360,
+      "style": {
+        "fontSize": 68,
+        "color": "#ffffff",
+        "strokeColor": "#000000",
+        "bgColor": "#000000",
+        "bgOpacity": 50
+      }
     }
   ]
 }
 ```
+
+### 値の単位で間違えやすいところ
+
+| キー | 単位・既定 | 補足 |
+|---|---|---|
+| `posY` | px、既定 **360** | 下からの余白（`padding-bottom`）。大きいほど上へ行く |
+| `style.bgOpacity` | **0〜100**、既定 80 | 0〜1 ではない。内部で `/100` される |
+| `style.bgColor` | `#rrggbb` | `rgba(...)` ではない。透明度は `bgOpacity` で指定する |
+| `style.strokeColor` | `#rrggbb` か `transparent` | `transparent` にすると縁取りと影が消える |
+| `character` | 0〜19 | `images/char0.png` 〜 の番号 |
+
+---
+
+## image-timeline.json 構造
+
+挿絵・図の差し込み。`transcript.json` とは別のファイルで、配列をそのまま書く。
+
+```json
+[
+  { "file": "images/inserts/insert_003.png", "start": 22.14, "end": 34.58, "note": "説明用の図" }
+]
+```
+
+`note` は人間用のメモで、レンダリングでは無視される。`file` が空の要素は表示されない。
+`npm run image-timeline` が枠だけ並べた下書きを作るので、`file` を埋めて使う。
+
+画面の上70%に出て、前後0.2秒でフェードし、3秒を超える枠はゆっくりズームする
+（`src/components/InsertLayer.tsx`）。
 
 ---
 

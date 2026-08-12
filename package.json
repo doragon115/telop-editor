@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "音声ファイル＋人物画像4枚から縦長ショート動画を自動生成",
   "scripts": {
+    "cut": "python3 -m scripts.silence_cut.cli",
+    "image-timeline": "python3 -m scripts.silence_cut.cli image-timeline",
+    "test:cut": "python3 -m unittest discover -s scripts/silence_cut/tests -t .",
     "transcribe": "python3 scripts/generate-transcript.py",
     "whisper": "python3 scripts/generate-transcript.py input/audio/audio.mp3",
     "dev": "tsx scripts/prepare.ts && remotion studio src/index.tsx",
